@@ -308,4 +308,104 @@ export class RCCar {
 
     loadCar() {
         // Placeholder box while loading
-        const placeholder = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1.5), new THREE.MeshBasicMaterial({color: 0xffaa00
+        const placeholder = new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1.5), new THREE.MeshBasicMaterial({color: 0xffaa00, wireframe: true}));
+        placeholder.name = "CarPlaceholder";
+        this.mesh.add(placeholder);
+
+        // Load GLB
+        const loader = new GLTFLoader();
+        loader.load('./car.glb', (gltf) => {
+            // Remove placeholder
+            const p = this.mesh.getObjectByName("CarPlaceholder");
+            if(p) this.mesh.remove(p);
+
+            const model = gltf.scene;
+            model.scale.set(SCALES.car, SCALES.car, SCALES.car);
+            model.rotation.y = Math.PI; // Fix rotation if car comes facing backwards
+            model.traverse(c => { if(c.isMesh) c.castShadow = true; });
+            this.mesh.add(model);
+            
+            // Add headlights to the real model
+            const beam = new THREE.SpotLight(0xffffff, 5, 10, 0.6, 0.5, 1);
+            beam.position.set(0, 0.5, -0.8);
+            beam.target.position.set(0, 0, -5);
+            this.mesh.add(beam);
+            this.mesh.add(beam.target);
+        });
+    }
+
+    update(keys) {
+        if(keys['w'] || keys['ArrowUp']) this.speed -= this.acceleration;
+        if(keys['s'] || keys['ArrowDown']) this.speed += this.acceleration;
+        if(Math.abs(this.speed) > 0.001) {
+            if(keys['a'] || keys['ArrowLeft']) this.steering += 0.05;
+            if(keys['d'] || keys['ArrowRight']) this.steering -= 0.05;
+        }
+        this.speed *= this.friction;
+        this.steering *= 0.9; 
+        this.speed = Math.max(Math.min(this.speed, this.maxSpeed), -this.maxSpeed);
+
+        this.mesh.translateX(this.steering * this.speed * 2); 
+        this.mesh.translateZ(this.speed);
+        this.mesh.rotation.y += this.steering * (this.speed * 3); 
+    }
+}
+
+export class CityBuilder {
+    constructor(scene) {
+        this.scene = scene;
+        this.metroGroup = new THREE.Group();
+    }
+    createCity() {
+        const cityGroup = new THREE.Group();
+        const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+        for(let i=0; i<80; i++) {
+            const h = Math.random() * 40 + 10;
+            const w = Math.random() * 10 + 5;
+            const building = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({ color: 0x8899aa }));
+            building.scale.set(w, h, w);
+            building.position.set(
+                (Math.random() - 0.5) * 250, h/2 - 40, -60 - (Math.random() * 100)
+            );
+            if(Math.random() > 0.3) {
+                const winGeo = new THREE.PlaneGeometry(0.3, 0.3);
+                const winMat = new THREE.MeshBasicMaterial({ color: 0xaaccff });
+                for(let k=0; k<10; k++) {
+                    const win = new THREE.Mesh(winGeo, winMat);
+                    win.position.set((Math.random()-0.5), (Math.random()-0.5), 0.51);
+                    building.add(win);
+                }
+            }
+            cityGroup.add(building);
+        }
+        this.scene.add(cityGroup);
+    }
+    createMetroSystem() {
+        const trackZ = -45;
+        const pillarGeo = new THREE.CylinderGeometry(2, 2, 50);
+        const concMat = new THREE.MeshStandardMaterial({ color: 0x999999 });
+        for(let x = -150; x <= 150; x+=30) {
+            const pillar = new THREE.Mesh(pillarGeo, concMat);
+            pillar.position.set(x, -25, trackZ);
+            this.scene.add(pillar);
+        }
+        const railBed = new THREE.Mesh(new THREE.BoxGeometry(400, 2, 8), concMat);
+        railBed.position.set(0, 0, trackZ);
+        this.scene.add(railBed);
+        const trainMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.8 });
+        for(let i=0; i<4; i++) {
+            const car = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 2.5), trainMat);
+            car.position.set(i * 11, 2.5, 0);
+            const winStrip = new THREE.Mesh(new THREE.PlaneGeometry(9, 1), new THREE.MeshBasicMaterial({ color: 0x333333 }));
+            winStrip.position.set(0, 0.5, 1.26);
+            car.add(winStrip);
+            this.metroGroup.add(car);
+        }
+        this.metroGroup.position.set(100, 0, trackZ);
+        this.scene.add(this.metroGroup);
+    }
+    updateMetro() {
+        this.metroGroup.position.x -= 0.8;
+        if(this.metroGroup.position.x < -200) this.metroGroup.position.x = 200;
+    }
+}
