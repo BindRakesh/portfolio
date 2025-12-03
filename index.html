@@ -3,417 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gesture Particles Ultimate</title>
+    <title>Rakesh's 3D Portfolio</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
-        
-        /* Glass UI Panel */
-        #ui-panel {
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        #info {
             position: absolute;
             top: 20px;
-            left: 20px;
-            width: 260px;
-            padding: 20px;
-            background: rgba(20, 20, 25, 0.7);
-            backdrop-filter: blur(15px);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            color: #fff;
-            z-index: 100;
-            transition: transform 0.3s ease;
-        }
-
-        h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #888; margin: 0 0 15px 0; }
-        
-        .section { margin-bottom: 20px; }
-        label { display: block; font-size: 11px; color: #666; margin-bottom: 8px; font-weight: 600; }
-
-        /* Template Grid */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        
-        button {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.05);
-            color: #ccc;
-            padding: 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-        button:hover { background: rgba(255,255,255,0.15); color: white; }
-        button.active { background: #6366f1; color: white; border-color: #6366f1; box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
-
-        /* Color Input */
-        input[type="color"] {
-            width: 100%; height: 35px; border: none; background: none; cursor: pointer;
-        }
-
-        /* Status Indicators */
-        #status-box {
-            background: rgba(0,0,0,0.3);
-            padding: 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        #gesture-icon { font-size: 16px; }
-        
-        /* Camera Preview (Hidden but running) */
-        #webcam-preview {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            width: 160px;
-            height: 120px;
-            border-radius: 12px;
-            opacity: 0.3;
-            transform: scaleX(-1);
+            width: 100%;
+            text-align: center;
+            color: white;
             pointer-events: none;
-            border: 1px solid #444;
+            text-shadow: 1px 1px 2px black;
         }
+        /* Simple modal for content display */
+        #modal {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 400px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        #modal h2 { margin-top: 0; }
+        button { cursor: pointer; padding: 5px 10px; }
     </style>
+</head>
+<body>
+
+    <div id="info">Click on the <b>Monitor</b> for Skills or the <b>Laptop</b> for About Me</div>
+    
+    <div id="modal">
+        <h2 id="modal-title">Title</h2>
+        <p id="modal-content">Content goes here...</p>
+        <button onclick="document.getElementById('modal').style.display='none'">Close</button>
+    </div>
+
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3"
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
             }
         }
     </script>
-</head>
-<body>
-
-    <div id="ui-panel">
-        <h2>Control Panel</h2>
-        
-        <div class="section">
-            <label>Templates</label>
-            <div class="grid">
-                <button class="active" onclick="setShape('heart')">Heart</button>
-                <button onclick="setShape('saturn')">Saturn</button>
-                <button onclick="setShape('flower')">Lotus</button>
-                <button onclick="setShape('sphere')">Sphere</button>
-            </div>
-        </div>
-
-        <div class="section">
-            <label>Particle Color</label>
-            <input type="color" id="color-picker" value="#00ffff">
-        </div>
-
-        <div class="section">
-            <label>Hand Tracking Status</label>
-            <div id="status-box">
-                <span id="status-text">Initializing AI...</span>
-                <span id="gesture-icon">⚫</span>
-            </div>
-        </div>
-    </div>
-
-    <video id="webcam-preview" autoplay playsinline muted></video>
 
     <script type="module">
         import * as THREE from 'three';
-        import { FilesetResolver, HandLandmarker } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/+esm";
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-        // --- 1. CONFIGURATION ---
-        const CONFIG = {
-            count: 12000,
-            size: 0.12,
-            color: 0x00ffff,
-            spring: 0.05,
-            friction: 0.93
-        };
-
-        // --- 2. THREE.JS SCENE SETUP ---
+        // 1. SCENE SETUP
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.04); // Depth fog
+        scene.background = new THREE.Color(0x202025); // Dark office background
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 12;
+        camera.position.set(0, 2.5, 4); // Position camera to look down at desk
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true; // Enable shadows
         document.body.appendChild(renderer.domElement);
 
-        // --- 3. PARTICLE SYSTEM ---
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(CONFIG.count * 3);
-        const targets = new Float32Array(CONFIG.count * 3); // The shape we want to form
-        const velocities = new Float32Array(CONFIG.count * 3);
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 1, 0);
 
-        // Init random positions
-        for(let i=0; i<CONFIG.count*3; i++) {
-            positions[i] = (Math.random() - 0.5) * 30;
-            velocities[i] = 0;
-            targets[i] = 0;
-        }
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
 
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // 2. BUILD THE OFFICE (BLOCK-OUT)
         
-        const material = new THREE.PointsMaterial({
-            size: CONFIG.size,
-            color: CONFIG.color,
-            blending: THREE.AdditiveBlending, // Makes them glow when overlapping
-            depthWrite: false,
-            transparent: true,
-            opacity: 0.8
+        // Material Helpers
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+        const screenMat = new THREE.MeshStandardMaterial({ color: 0x4488ff, emissive: 0x112244 }); // Glowing screen
+        const metalMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+
+        const interactableObjects = [];
+
+        // -- The Desk --
+        const deskGeo = new THREE.BoxGeometry(4, 0.1, 2);
+        const desk = new THREE.Mesh(deskGeo, woodMat);
+        desk.position.y = 1;
+        desk.receiveShadow = true;
+        scene.add(desk);
+
+        // -- The Monitor (Primary Interaction) --
+        const monitorGroup = new THREE.Group();
+        
+        // Stand
+        const standGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5);
+        const stand = new THREE.Mesh(standGeo, metalMat);
+        stand.position.y = 1.25;
+        
+        // Screen Frame
+        const monitorFrameGeo = new THREE.BoxGeometry(1.5, 0.9, 0.05);
+        const monitorFrame = new THREE.Mesh(monitorFrameGeo, darkMat);
+        monitorFrame.position.y = 1.6;
+
+        // The Actual Screen (Clickable)
+        const screenGeo = new THREE.BoxGeometry(1.4, 0.8, 0.06);
+        const monitorScreen = new THREE.Mesh(screenGeo, screenMat);
+        monitorScreen.position.y = 1.6;
+        monitorScreen.name = "Monitor"; // IMPORTANT for click logic
+        monitorGroup.add(stand, monitorFrame, monitorScreen);
+        monitorGroup.position.set(0, 0, -0.5);
+        
+        scene.add(monitorGroup);
+        interactableObjects.push(monitorScreen);
+
+        // -- The Laptop (Secondary Interaction) --
+        const laptopGroup = new THREE.Group();
+        
+        // Base
+        const lapBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.6), metalMat);
+        
+        // Lid (Open)
+        const lapLid = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.6), metalMat);
+        lapLid.position.set(0, 0.025, -0.3);
+        lapLid.rotation.x = Math.PI / 4; // Open lid angle
+        
+        // Laptop Screen (Clickable)
+        const lapScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.5), screenMat);
+        lapScreen.position.set(0, 0.06, -0.35);
+        lapScreen.rotation.x = Math.PI / 4 - 0.1; // Slightly offset from lid
+        lapScreen.name = "Laptop";
+        
+        laptopGroup.add(lapBase, lapLid, lapScreen);
+        laptopGroup.position.set(1.2, 1.05, 0.3);
+        laptopGroup.rotation.y = -0.5; // Angled toward user
+        scene.add(laptopGroup);
+        interactableObjects.push(lapScreen);
+
+        // -- The Chair --
+        const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), darkMat);
+        chairSeat.position.set(0, 0.5, 1.5);
+        const chairBack = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.1), darkMat);
+        chairBack.position.set(0, 1, 2);
+        scene.add(chairSeat, chairBack);
+
+
+        // 3. RAYCASTING (CLICK LOGIC)
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        window.addEventListener('click', (event) => {
+            // Calculate pointer position in normalized device coordinates (-1 to +1)
+            pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+            pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            // Update the picking ray with the camera and pointer position
+            raycaster.setFromCamera(pointer, camera);
+
+            // Calculate objects intersecting the picking ray
+            const intersects = raycaster.intersectObjects(interactableObjects);
+
+            if (intersects.length > 0) {
+                const objectName = intersects[0].object.name;
+                handleInteraction(objectName);
+            }
         });
 
-        const particleSystem = new THREE.Points(geometry, material);
-        scene.add(particleSystem);
+        function handleInteraction(name) {
+            const modal = document.getElementById('modal');
+            const title = document.getElementById('modal-title');
+            const content = document.getElementById('modal-content');
 
-        // --- 4. MATHEMATICAL SHAPES ---
-        function generateShape(type) {
-            const count = CONFIG.count;
-            for (let i = 0; i < count; i++) {
-                const idx = i * 3;
-                let x, y, z;
+            modal.style.display = 'block';
 
-                if (type === 'heart') {
-                    const t = Math.random() * Math.PI * 2;
-                    // Heart Formula
-                    x = 16 * Math.pow(Math.sin(t), 3);
-                    y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-                    z = (Math.random() - 0.5) * 6;
-                    // Scale down
-                    x *= 0.35; y *= 0.35;
-                } 
-                else if (type === 'saturn') {
-                    if (i < count * 0.7) { // Planet Body
-                        const u = Math.random() * Math.PI * 2;
-                        const v = Math.random() * Math.PI;
-                        const r = 3.5;
-                        x = r * Math.sin(v) * Math.cos(u);
-                        y = r * Math.sin(v) * Math.sin(u);
-                        z = r * Math.cos(v);
-                    } else { // Rings
-                        const angle = Math.random() * Math.PI * 2;
-                        const dist = 5 + Math.random() * 4;
-                        x = Math.cos(angle) * dist;
-                        z = Math.sin(angle) * dist;
-                        y = (Math.random() - 0.5) * 0.2; // Flat ring
-                    }
-                    // Tilt the whole planet
-                    const tx = x;
-                    x = tx * Math.cos(0.4) - y * Math.sin(0.4);
-                    y = tx * Math.sin(0.4) + y * Math.cos(0.4);
-                }
-                else if (type === 'flower') {
-                    // Rose / Lotus curve
-                    const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.random() * Math.PI;
-                    const r = 4 + Math.sin(theta * 6) * 1.5; // 6 petals
-                    
-                    x = r * Math.sin(phi) * Math.cos(theta);
-                    y = r * Math.sin(phi) * Math.sin(theta); 
-                    z = r * Math.cos(phi) * 0.5; // Flattened
-                }
-                else { // Sphere/Chaos
-                    const u = Math.random() * Math.PI * 2;
-                    const v = Math.random() * Math.PI;
-                    const r = 5;
-                    x = r * Math.sin(v) * Math.cos(u);
-                    y = r * Math.sin(v) * Math.sin(u);
-                    z = r * Math.cos(v);
-                }
-
-                targets[idx] = x;
-                targets[idx+1] = y;
-                targets[idx+2] = z;
+            if (name === "Monitor") {
+                title.innerText = "Work Skills";
+                content.innerHTML = `
+                    <ul>
+                        <li><b>Web Development:</b> HTML, CSS, JavaScript</li>
+                        <li><b>Backend:</b> Python, Node.js</li>
+                        <li><b>Tools:</b> Three.js, React, GitHub</li>
+                        <li><b>Specialty:</b> Creating interactive 3D experiences.</li>
+                    </ul>
+                `;
+            } else if (name === "Laptop") {
+                title.innerText = "About Me";
+                content.innerHTML = "Hi, I'm Rakesh. I am a passionate developer who loves bridging the gap between design and engineering. Currently focused on 3D web technologies.";
             }
         }
 
-        // --- 5. UI & EVENTS ---
-        window.setShape = (type) => {
-            generateShape(type);
-            // Highlight button
-            document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-        };
-
-        const colorPicker = document.getElementById('color-picker');
-        colorPicker.addEventListener('input', (e) => {
-            material.color.set(e.target.value);
-        });
-
-        // Initialize with Heart
-        generateShape('heart');
-
-        // --- 6. AI & INTERACTION LOGIC ---
-        let handLandmarker;
-        const video = document.getElementById('webcam-preview');
-        const statusText = document.getElementById('status-text');
-        const gestureIcon = document.getElementById('gesture-icon');
-        
-        // Interaction State
-        let handState = {
-            detected: false,
-            mode: 'idle', // idle, implode, explode
-            x: 0.5, // Normalized 0-1
-            y: 0.5
-        };
-
-        async function initAI() {
-            try {
-                const vision = await FilesetResolver.forVisionTasks(
-                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
-                );
-                handLandmarker = await HandLandmarker.createFromOptions(vision, {
-                    baseOptions: {
-                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                        delegate: "GPU"
-                    },
-                    runningMode: "VIDEO",
-                    numHands: 1
-                });
-
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                video.srcObject = stream;
-                video.addEventListener('loadeddata', predict);
-                
-                statusText.innerText = "Camera Active. Show Hand.";
-                statusText.style.color = "#00ff88";
-            } catch (e) {
-                statusText.innerText = "Error: Use Localhost";
-                statusText.style.color = "red";
-            }
-        }
-
-        let lastTime = -1;
-        function predict() {
-            if (video.currentTime !== lastTime) {
-                lastTime = video.currentTime;
-                const results = handLandmarker.detectForVideo(video, performance.now());
-
-                if (results.landmarks && results.landmarks.length > 0) {
-                    handState.detected = true;
-                    const lm = results.landmarks[0];
-                    const wrist = lm[0];
-                    const middleTip = lm[12];
-
-                    // 1. Calculate Hand Position for Rotation
-                    // Smooth lerp
-                    handState.x += (wrist.x - handState.x) * 0.1;
-                    handState.y += (wrist.y - handState.y) * 0.1;
-
-                    // 2. Calculate "Pinch" (Fist vs Open)
-                    const dist = Math.sqrt(
-                        Math.pow(middleTip.x - wrist.x, 2) + 
-                        Math.pow(middleTip.y - wrist.y, 2)
-                    );
-
-                    if (dist < 0.25) {
-                        handState.mode = 'implode';
-                        statusText.innerText = "Fist Detected (Implode)";
-                        gestureIcon.innerText = "✊";
-                        statusText.style.color = "#ff4757";
-                    } else if (dist > 0.45) {
-                        handState.mode = 'explode';
-                        statusText.innerText = "Palm Open (Explode)";
-                        gestureIcon.innerText = "🖐️";
-                        statusText.style.color = "#00ff88";
-                    } else {
-                        handState.mode = 'idle';
-                        statusText.innerText = "Hand Tracking...";
-                        gestureIcon.innerText = "✋";
-                        statusText.style.color = "#aaa";
-                    }
-
-                } else {
-                    handState.detected = false;
-                    statusText.innerText = "No Hand Detected";
-                    gestureIcon.innerText = "⚫";
-                    statusText.style.color = "#aaa";
-                }
-            }
-            requestAnimationFrame(predict);
-        }
-
-        // --- 7. PHYSICS LOOP ---
+        // 4. ANIMATION LOOP
         function animate() {
             requestAnimationFrame(animate);
-
-            // A. Rotation Logic
-            if (handState.detected) {
-                // Map hand X (0..1) to rotation (-2..2)
-                const targetRotY = (handState.x - 0.5) * 3;
-                const targetRotX = (handState.y - 0.5) * 3;
-                
-                particleSystem.rotation.y += (targetRotY - particleSystem.rotation.y) * 0.05;
-                particleSystem.rotation.x += (targetRotX - particleSystem.rotation.x) * 0.05;
-            } else {
-                particleSystem.rotation.y += 0.002; // Auto spin
-            }
-
-            // B. Particle Physics
-            const pos = geometry.attributes.position.array;
-            
-            for(let i=0; i<CONFIG.count; i++) {
-                const ix = i*3, iy = i*3+1, iz = i*3+2;
-                
-                // Forces
-                let ax = 0, ay = 0, az = 0;
-
-                // 1. Home Force (Go to shape)
-                // If Exploding, we disable the 'home' force so they fly away
-                const homeForce = handState.mode === 'explode' ? 0 : CONFIG.spring;
-                
-                ax += (targets[ix] - pos[ix]) * homeForce;
-                ay += (targets[iy] - pos[iy]) * homeForce;
-                az += (targets[iz] - pos[iz]) * homeForce;
-
-                // 2. Interaction Force
-                if (handState.mode === 'explode') {
-                    // Expansion: Add velocity outward from center
-                    ax += pos[ix] * 0.03;
-                    ay += pos[iy] * 0.03;
-                    az += pos[iz] * 0.03;
-                } 
-                else if (handState.mode === 'implode') {
-                    // Black Hole: Suck inward aggressively
-                    // We pull towards (0,0,0)
-                    ax -= pos[ix] * 0.08;
-                    ay -= pos[iy] * 0.08;
-                    az -= pos[iz] * 0.08;
-                }
-
-                // Apply forces to velocity
-                velocities[ix] += ax;
-                velocities[iy] += ay;
-                velocities[iz] += az;
-
-                // Friction
-                velocities[ix] *= CONFIG.friction;
-                velocities[iy] *= CONFIG.friction;
-                velocities[iz] *= CONFIG.friction;
-
-                // Update Position
-                pos[ix] += velocities[ix];
-                pos[iy] += velocities[iy];
-                pos[iz] += velocities[iz];
-            }
-
-            geometry.attributes.position.needsUpdate = true;
+            controls.update();
             renderer.render(scene, camera);
         }
 
-        // Resize Handler
+        // Handle Window Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Start
-        initAI();
         animate();
-
     </script>
 </body>
 </html>
