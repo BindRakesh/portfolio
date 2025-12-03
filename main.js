@@ -2,45 +2,56 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OfficeBuilder, CityBuilder } from './world.js';
 
-// Setup Scene
+// --- SCENE & ATMOSPHERE ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x020205); // Deep night
-scene.fog = new THREE.FogExp2(0x020205, 0.015);
+// Changed to a Twilight Blue (Evening but bright)
+scene.background = new THREE.Color(0x1a1a2e); 
+// Lighter fog to show city depth
+scene.fog = new THREE.FogExp2(0x1a1a2e, 0.015);
 
-// Camera
+// --- CAMERA ---
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-// Position camera to look at "My Desk" (approx Row 2, Col 5)
-// Based on OfficeBuilder logic: x ≈ 2.5, z ≈ 2
-camera.position.set(5, 6, 8); 
+// Position camera to look at "Your Desk"
+camera.position.set(2, 4, 6); 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+// Enable proper lighting calculation
+renderer.useLegacyLights = false; 
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 
-// Controls
+// --- CONTROLS (RESTRICTED) ---
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(2.5, 1, 2); // Look at my desk
+controls.target.set(0, 1, 0); 
 controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI / 2 - 0.1; // Don't go below floor
+// RESTRICTION: Keep user inside the office
+controls.minDistance = 2;  // Can't zoom inside the monitor
+controls.maxDistance = 15; // Can't zoom out through the walls
 
 // --- BUILD WORLD ---
 const office = new OfficeBuilder(scene);
 office.createFloor();
-office.createWorkstations(); // Builds 50 desks
+office.createWallsAndWindows(); // Updated function for Left + Back windows
+office.createCeilingLights();   // New bright tube lights
+office.createWorkstations();    // Updated layout (3x5 and 4x6)
 
 const city = new CityBuilder(scene);
 city.createCity();
 city.createMetroSystem();
 
-// --- LIGHTING ---
-const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+// --- LIGHTING (BRIGHTER) ---
+// 1. General brightness (Ambience)
+const ambient = new THREE.AmbientLight(0xffffff, 0.7); 
 scene.add(ambient);
 
-// Office Ceiling Lights (Grid)
-const ceilingLight = new THREE.PointLight(0xffffff, 0.5);
-ceilingLight.position.set(0, 7, 0);
-scene.add(ceilingLight);
+// 2. Sunlight from outside (Evening Sun)
+const sunLight = new THREE.DirectionalLight(0xffaa88, 1.5);
+sunLight.position.set(-50, 20, -50);
+sunLight.castShadow = true;
+scene.add(sunLight);
 
 // --- INTERACTION LOGIC ---
 const raycaster = new THREE.Raycaster();
@@ -51,26 +62,21 @@ window.addEventListener('click', (event) => {
     pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
     raycaster.setFromCamera(pointer, camera);
-    
-    // We only check against the "Interactive" objects list from OfficeBuilder
     const intersects = raycaster.intersectObjects(office.interactables);
 
     if (intersects.length > 0) {
-        // Show HTML Overlay
         const overlay = document.getElementById('screen-overlay');
         const title = document.getElementById('overlay-title');
         const text = document.getElementById('overlay-text');
 
         overlay.classList.remove('hidden');
-        title.innerText = "Rakesh's Workstation";
+        title.innerText = "System Access Granted";
         text.innerHTML = `
-            <h3>Full Stack Developer</h3>
-            <p>Welcome to my desk. Here is what I work on:</p>
-            <ul>
-                <li>Scalable Web Architectures</li>
-                <li>3D Interactive Experiences</li>
-                <li>Backend Optimization</li>
-            </ul>
+            <h3>Rakesh | Engineer</h3>
+            <p><strong>Project:</strong> Portfolio V1</p>
+            <p><strong>Status:</strong> Building 3D Environments</p>
+            <hr/>
+            <p>Click 'Close System' to return to view.</p>
         `;
     }
 });
@@ -78,13 +84,11 @@ window.addEventListener('click', (event) => {
 // --- ANIMATION LOOP ---
 function animate() {
     requestAnimationFrame(animate);
-    
-    city.updateMetro(); // Move the train
+    city.updateMetro(); 
     controls.update();
     renderer.render(scene, camera);
 }
 
-// Handle Resize
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
