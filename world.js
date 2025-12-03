@@ -1,13 +1,10 @@
 import * as THREE from 'three';
+import { OfficeChair } from './OfficeChair.js'; // Import new file
+import { ModernDesk } from './ModernDesk.js';   // Import new file
 
 // --- MATERIALS ---
-const matMetal = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.3, metalness: 0.8 });
-const matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
 const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-// CHANGED: Lighter Grey-Blue Carpet so it is visible against the dark background
-const matCarpet = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 1 }); 
-const matDesk = new THREE.MeshStandardMaterial({ color: 0xffffff }); 
-const matScreenOn = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+const matCarpet = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 1 });
 const matGlass = new THREE.MeshPhysicalMaterial({ 
     color: 0x88ccff, transmission: 0.9, opacity: 0.2, transparent: true, roughness: 0, side: THREE.DoubleSide 
 });
@@ -15,8 +12,6 @@ const matDuct = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.7
 const matPipe = new THREE.MeshStandardMaterial({ color: 0xcc0000, metalness: 0.3, roughness: 0.4 });
 const matPot = new THREE.MeshStandardMaterial({ color: 0xdddddd });
 const matLeaf = new THREE.MeshStandardMaterial({ color: 0x228822 });
-
-// Car Materials
 const matCarBody = new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness: 0.6, roughness: 0.2 });
 const matWheel = new THREE.MeshStandardMaterial({ color: 0x111111 });
 const matHeadlight = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -25,17 +20,19 @@ export class OfficeBuilder {
     constructor(scene) {
         this.scene = scene;
         this.interactables = [];
-        this.colliders = []; 
+        this.colliders = [];
+        
+        // Pre-build the detailed assets once, then clone them
+        this.baseChair = new OfficeChair();
+        this.baseDesk = new ModernDesk();
     }
 
     createFloor() {
-        // Floor Mat (Carpet)
         const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), matCarpet);
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         this.scene.add(floor);
 
-        // Ceiling
         const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), matWhite);
         ceiling.rotation.x = Math.PI / 2;
         ceiling.position.y = 10;
@@ -89,16 +86,11 @@ export class OfficeBuilder {
     }
 
     createLayout() {
-        // --- SECTION A: Left Side (User + Team) ---
-        // 3 desks wide x 4 rows deep
-        // Changed Z start to -15 so there are rows behind you
-        // Start X at -20
-        this.buildBlock(4, 3, -20, -10, false, "left");
+        // Left Side: 4 rows x 3 cols
+        this.buildBlock(4, 3, -20, -15, false, "left");
 
-        // --- SECTION B: Right Side (General Staff) ---
-        // Moved closer to center (Start X = 2 instead of 5) to close the gap
-        // 4 rows x 5 cols
-        this.buildBlock(4, 5, 2, -10, true, "right");
+        // Right Side: 4 rows x 5 cols (closer to center)
+        this.buildBlock(4, 5, 2, -15, true, "right");
     }
 
     buildBlock(rows, cols, startX, startZ, hasPillar, side) {
@@ -110,17 +102,15 @@ export class OfficeBuilder {
                 const cx = startX + (c * spacingX);
                 const cz = startZ + (r * spacingZ);
 
-                // PILLAR LOGIC: Right side, Row 2, Col 0 (Next to passage)
                 if (hasPillar && r === 2 && c === 0) {
                     this.createPillar(cx, cz);
                     continue; 
                 }
 
-                // Make "My Desk" interactive
-                // User is on Left Side, Row 0 (Front), Col 1 (Middle of the 3)
+                // Make "My Desk" interactive (Left Side, Row 0, Col 1)
                 const isMine = (side === "left" && r === 0 && c === 1);
                 
-                this.buildSingleDesk(cx, cz, isMine);
+                this.placeWorkstation(cx, cz, isMine);
             }
         }
     }
@@ -140,56 +130,47 @@ export class OfficeBuilder {
         this.colliders.push(pot);
     }
 
-    buildSingleDesk(x, z, isInteractable) {
-        const deskGroup = new THREE.Group();
-        deskGroup.position.set(x, 0, z);
+    placeWorkstation(x, z, isInteractable) {
+        const stationGroup = new THREE.Group();
+        stationGroup.position.set(x, 0, z);
 
-        const table = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.1, 2.2), matDesk);
-        table.position.y = 1.5;
-        table.castShadow = true;
-        
-        const legGeo = new THREE.BoxGeometry(0.1, 1.5, 2);
-        const legL = new THREE.Mesh(legGeo, matMetal); legL.position.set(-2.1, 0.75, 0);
-        const legR = new THREE.Mesh(legGeo, matMetal); legR.position.set(2.1, 0.75, 0);
-        
+        // 1. Get Detailed Desk
+        // Note: We create a new instance to allow specific "isInteractable" screen logic
+        const deskObj = new ModernDesk(); 
+        const deskMesh = deskObj.build(isInteractable);
+        stationGroup.add(deskMesh);
+
+        // Add to interactables if it's the hero screen
+        if (deskObj.interactableScreen) {
+            this.interactables.push(deskObj.interactableScreen);
+            
+            // Add Spotlight for my desk
+            const spot = new THREE.SpotLight(0xffffff, 8);
+            spot.position.set(0, 6, 0);
+            spot.target = deskMesh;
+            spot.angle = 0.5;
+            spot.penumbra = 0.5;
+            stationGroup.add(spot);
+            stationGroup.add(spot.target);
+        }
+
+        // 2. Get Detailed Chair
+        const chairMesh = this.baseChair.getMesh();
+        chairMesh.position.set(0, 0, 1.2);
+        if(!isInteractable) {
+            // Randomly rotate/push in chairs for realism
+            chairMesh.rotation.y = (Math.random() - 0.5) * 1.0; 
+            chairMesh.position.z = 1.0 + Math.random() * 0.4;
+        }
+        stationGroup.add(chairMesh);
+
+        // 3. Add Invisible Collider for Car
         const collider = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2, 2.2), new THREE.MeshBasicMaterial({visible: false}));
         collider.position.set(x, 1, z);
         this.scene.add(collider);
         this.colliders.push(collider);
 
-        const partition = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.6, 0.05), new THREE.MeshStandardMaterial({color: 0x336699}));
-        partition.position.set(0, 1.8, -1);
-
-        const monScreen = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 0.05), matBlack);
-        monScreen.position.set(0, 2.0, -0.7);
-        const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5), matBlack);
-        stand.position.set(0, 1.7, -0.7);
-
-        if (isInteractable) {
-            const glowScreen = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.7), matScreenOn);
-            glowScreen.position.set(0, 0, 0.03);
-            glowScreen.name = "HeroMonitor"; 
-            monScreen.add(glowScreen);
-            this.interactables.push(glowScreen);
-            
-            const spot = new THREE.SpotLight(0xffffff, 10);
-            spot.position.set(0, 6, 0);
-            spot.target = table;
-            deskGroup.add(spot);
-        }
-
-        const chairGroup = new THREE.Group();
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), matBlack);
-        const back = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.1), matBlack);
-        back.position.set(0, 0.6, 0.5);
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8), matMetal);
-        stem.position.set(0, -0.4, 0);
-        chairGroup.add(seat, back, stem);
-        chairGroup.position.set(0, 1, 1.2);
-        if(!isInteractable) chairGroup.rotation.y = (Math.random() - 0.5);
-        
-        deskGroup.add(table, legL, legR, partition, monScreen, stand, chairGroup);
-        this.scene.add(deskGroup);
+        this.scene.add(stationGroup);
     }
 }
 
