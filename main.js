@@ -1,63 +1,66 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { OfficeBuilder, CityBuilder } from './world.js';
+import { OfficeBuilder, CityBuilder, RCCar } from './world.js';
 
-// --- SCENE & ATMOSPHERE ---
+// --- SCENE ---
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222233); // Brighter Evening Blue
-scene.fog = new THREE.FogExp2(0x222233, 0.01); // Less dense fog for clarity
+// DAYLIGHT SKY COLOR
+scene.background = new THREE.Color(0x87CEEB); 
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.008); 
 
-// --- CAMERA ---
+// --- CAMERA (My Desk View) ---
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-// Position camera to look at the new layout
-camera.position.set(-5, 6, 8); 
+
+// "My Desk" is at x: -15, z: -15.
+// We position camera slightly behind the chair (-15, 1.6, -11) looking forward
+camera.position.set(-15, 1.6, -11); 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.useLegacyLights = false;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2; // Increase overall brightness
 document.body.appendChild(renderer.domElement);
 
 // --- CONTROLS ---
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(-5, 1, 0); // Focus on the User's desk area
+// Target the desk
+controls.target.set(-15, 1.4, -15);
 controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI / 2 - 0.1;
-controls.minDistance = 2;
-controls.maxDistance = 20;
+controls.minDistance = 0.5;
+controls.maxDistance = 50;
 
 // --- BUILD WORLD ---
 const office = new OfficeBuilder(scene);
 office.createFloor();
-office.createWallsAndWindows(); 
-office.createCeilingDetails(); // NEW: Ducts and Pipes
-office.createLayout();         // NEW: Split layout with Meeting Area
+office.createWallsAndWindows();
+office.createCeilingDetails();
+office.createLayout();
 
 const city = new CityBuilder(scene);
 city.createCity();
 city.createMetroSystem();
 
-// --- LIGHTING (BRIGHTER) ---
-// 1. Hemisphere Light (Simulates light bouncing off white walls)
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-hemiLight.position.set(0, 20, 0);
-scene.add(hemiLight);
+const car = new RCCar(scene);
 
-// 2. Directional Sun (Evening warmth coming from window)
-const sunLight = new THREE.DirectionalLight(0xffccaa, 1.5);
-sunLight.position.set(-50, 20, -20);
-sunLight.castShadow = true;
-sunLight.shadow.mapSize.width = 2048; // Sharp shadows
-sunLight.shadow.mapSize.height = 2048;
-scene.add(sunLight);
-
-// 3. General Ambient (Base brightness)
-const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+// --- LIGHTING (DAYLIGHT) ---
+const ambient = new THREE.AmbientLight(0xffffff, 1.0); // Bright ambient
 scene.add(ambient);
 
-// --- INTERACTION ---
+// Bright Sun
+const sunLight = new THREE.DirectionalLight(0xffffee, 2.5);
+sunLight.position.set(-50, 80, -20);
+sunLight.castShadow = true;
+sunLight.shadow.bias = -0.001;
+scene.add(sunLight);
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+scene.add(hemiLight);
+
+// --- INPUT & LOGIC ---
+const keys = {};
+window.addEventListener('keydown', (e) => keys[e.key] = true);
+window.addEventListener('keyup', (e) => keys[e.key] = false);
+
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -69,20 +72,37 @@ window.addEventListener('click', (event) => {
     const intersects = raycaster.intersectObjects(office.interactables);
 
     if (intersects.length > 0) {
-        document.getElementById('screen-overlay').classList.remove('hidden');
-        document.getElementById('overlay-title').innerText = "Rakesh's System";
-        document.getElementById('overlay-text').innerHTML = `
-            <h3>Full Stack Engineer</h3>
-            <p><strong>Status:</strong> Coding 3D Worlds.</p>
-            <p><strong>Skills:</strong> React, Three.js, Node.js</p>
-        `;
+        const overlay = document.getElementById('screen-overlay');
+        if(overlay) {
+            overlay.classList.remove('hidden');
+            const title = document.getElementById('overlay-title');
+            const text = document.getElementById('overlay-text');
+            if(title) title.innerText = "Workstation Access";
+            if(text) text.innerHTML = `
+                <h3>Rakesh | Engineer</h3>
+                <p><strong>System Status:</strong> Online</p>
+                <p>Welcome to my desk. Feel free to drive the RC car using W/A/S/D!</p>
+            `;
+        }
     }
 });
 
 function animate() {
     requestAnimationFrame(animate);
-    city.updateMetro(); 
+    city.updateMetro();
+    car.update(keys);
     controls.update();
+
+    if(Math.abs(car.speed) > 0.01) {
+        controls.enabled = false;
+        const relativeOffset = new THREE.Vector3(0, 3, 6);
+        const cameraOffset = relativeOffset.applyMatrix4(car.mesh.matrixWorld);
+        camera.position.lerp(cameraOffset, 0.1);
+        camera.lookAt(car.mesh.position);
+    } else {
+        controls.enabled = true;
+    }
+
     renderer.render(scene, camera);
 }
 
