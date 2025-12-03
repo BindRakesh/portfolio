@@ -1,15 +1,21 @@
 import * as THREE from 'three';
 
 // --- MATERIALS ---
-const matMetal = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.2, metalness: 0.8 });
+const matMetal = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.3, metalness: 0.8 });
 const matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
-const matDesk = new THREE.MeshStandardMaterial({ color: 0xffffff }); // Bright white desks
+const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }); // White Walls/Pillar
+const matCarpet = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 }); // Dark Grey Carpet
+const matDesk = new THREE.MeshStandardMaterial({ color: 0xffffff }); 
 const matScreenOn = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
-const matConcrete = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.9 }); // For Pillar
 const matGlass = new THREE.MeshPhysicalMaterial({ 
     color: 0x88ccff, transmission: 0.9, opacity: 0.2, transparent: true, roughness: 0, side: THREE.DoubleSide 
 });
-const matTubeLight = new THREE.MeshBasicMaterial({ color: 0xffffff });
+// Industrial Ceiling Mats
+const matDuct = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.7, roughness: 0.2 });
+const matPipe = new THREE.MeshStandardMaterial({ color: 0xcc0000, metalness: 0.3, roughness: 0.4 });
+// Plant Mats
+const matPot = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+const matLeaf = new THREE.MeshStandardMaterial({ color: 0x228822 });
 
 export class OfficeBuilder {
     constructor(scene) {
@@ -18,109 +24,164 @@ export class OfficeBuilder {
     }
 
     createFloor() {
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5 }));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), matCarpet);
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         this.scene.add(floor);
 
-        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), new THREE.MeshStandardMaterial({ color: 0xeeeeee }));
+        const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(80, 60), matWhite);
         ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.y = 10; // High ceiling
+        ceiling.position.y = 10;
         this.scene.add(ceiling);
     }
 
     createWallsAndWindows() {
-        const wallMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
-        
-        // 1. BACK WALL (With Window)
-        // Solid parts (Top/Bottom)
-        const backTop = new THREE.Mesh(new THREE.BoxGeometry(80, 2, 1), wallMat); backTop.position.set(0, 9, -20);
-        const backBot = new THREE.Mesh(new THREE.BoxGeometry(80, 2, 1), wallMat); backBot.position.set(0, 1, -20);
+        // Shifted glass slightly inward to prevent "Z-fighting" overlapping
+        // Back Wall
+        const backTop = new THREE.Mesh(new THREE.BoxGeometry(80, 3, 1), matWhite); backTop.position.set(0, 8.5, -20.5);
+        const backBot = new THREE.Mesh(new THREE.BoxGeometry(80, 2, 1), matWhite); backBot.position.set(0, 1, -20.5);
         this.scene.add(backTop, backBot);
-        // Glass
-        const backGlass = new THREE.Mesh(new THREE.PlaneGeometry(80, 6), matGlass);
-        backGlass.position.set(0, 5, -20);
+        
+        const backGlass = new THREE.Mesh(new THREE.PlaneGeometry(80, 5.5), matGlass);
+        backGlass.position.set(0, 4.75, -20); // Slightly in front of wall
         this.scene.add(backGlass);
 
-        // 2. LEFT WALL (With Window) - Rotated 90 deg
-        const leftTop = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 1), wallMat); 
-        leftTop.rotation.y = Math.PI/2; leftTop.position.set(-30, 9, 0);
-        const leftBot = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 1), wallMat); 
-        leftBot.rotation.y = Math.PI/2; leftBot.position.set(-30, 1, 0);
+        // Left Wall
+        const leftTop = new THREE.Mesh(new THREE.BoxGeometry(60, 3, 1), matWhite); 
+        leftTop.rotation.y = Math.PI/2; leftTop.position.set(-30.5, 8.5, 0);
+        const leftBot = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 1), matWhite); 
+        leftBot.rotation.y = Math.PI/2; leftBot.position.set(-30.5, 1, 0);
         this.scene.add(leftTop, leftBot);
-        // Glass
-        const leftGlass = new THREE.Mesh(new THREE.PlaneGeometry(60, 6), matGlass);
+
+        const leftGlass = new THREE.Mesh(new THREE.PlaneGeometry(60, 5.5), matGlass);
         leftGlass.rotation.y = Math.PI/2;
-        leftGlass.position.set(-30, 5, 0);
+        leftGlass.position.set(-30, 4.75, 0);
         this.scene.add(leftGlass);
 
-        // 3. RIGHT WALL (Solid)
-        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(1, 10, 60), wallMat);
+        // Right Wall (Solid White)
+        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(1, 10, 60), matWhite);
         rightWall.position.set(30, 5, 0);
         this.scene.add(rightWall);
     }
 
-    createCeilingLights() {
-        // Create rows of Tube lights
-        for(let z = -15; z < 20; z+=10) {
-            for(let x = -20; x < 20; x+=10) {
-                // The physical light fixture
-                const tube = new THREE.Mesh(new THREE.BoxGeometry(4, 0.2, 0.5), matTubeLight);
-                tube.position.set(x, 9.9, z);
-                this.scene.add(tube);
-                
-                // The Actual Light Emitter
-                const light = new THREE.PointLight(0xffffff, 0.8, 15); // Decay distance 15
-                light.position.set(x, 9, z);
-                this.scene.add(light);
-            }
-        }
+    createCeilingDetails() {
+        // 1. Large Silver AC Duct (Running Left to Right)
+        const mainDuct = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 80, 32), matDuct);
+        mainDuct.rotation.z = Math.PI / 2;
+        mainDuct.position.set(0, 9, 0);
+        this.scene.add(mainDuct);
+
+        // 2. Red Fire Pipes (Running Front to Back)
+        const pipe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 60), matPipe);
+        pipe1.rotation.x = Math.PI / 2;
+        pipe1.position.set(-10, 9.5, 0);
+        this.scene.add(pipe1);
+
+        const pipe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 60), matPipe);
+        pipe2.rotation.x = Math.PI / 2;
+        pipe2.position.set(10, 9.5, 0);
+        this.scene.add(pipe2);
     }
 
-    createWorkstations() {
-        // Block 1: 3 rows x 5 cols (Left side)
-        // Starting at x: -20, z: -5
-        this.buildBlock(3, 5, -18, -5, false);
+    createLayout() {
+        // --- SECTION A: Left Side (User Area) ---
+        // 3 desks wide x 2 rows
+        // Position: Left side of room (-15 x)
+        this.buildBlock(2, 3, -20, -10, false, "left");
 
-        // Block 2: 4 rows x 6 cols (Right side)
-        // Leave a passage gap (X axis gap)
-        // Starting at x: 5, z: -8
-        // Includes the PILLAR logic
-        this.buildBlock(4, 6, 12, -8, true);
+        // --- SECTION B: Meeting Area ---
+        // Behind the user's desk area (towards positive Z)
+        this.createMeetingArea(-20, 5);
+
+        // --- SECTION C: Right Side (General Staff) ---
+        // 4 rows x 6 cols
+        // Position: Right side of room (+10 x)
+        // Includes Pillar Logic
+        this.buildBlock(4, 6, 5, -12, true, "right");
     }
 
-    buildBlock(rows, cols, startX, startZ, hasPillar) {
-        const spacingX = 5.5;
-        const spacingZ = 6;
+    createMeetingArea(x, z) {
+        const group = new THREE.Group();
+        group.position.set(x, 0, z);
+
+        // 1. Large Table
+        const table = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 3), new THREE.MeshStandardMaterial({color: 0x3d3d3d}));
+        table.position.y = 1.2;
+        
+        // Legs
+        const legGeo = new THREE.BoxGeometry(0.2, 1.2, 2.5);
+        const leg1 = new THREE.Mesh(legGeo, matMetal); leg1.position.set(-2, 0.6, 0);
+        const leg2 = new THREE.Mesh(legGeo, matMetal); leg2.position.set(2, 0.6, 0);
+        group.add(table, leg1, leg2);
+
+        // 2. Stylish Sofas (Visual blocks)
+        const sofaGeo = new THREE.BoxGeometry(1.5, 1, 1.5);
+        const sofaMat = new THREE.MeshStandardMaterial({color: 0xaa5533}); // Burnt orange stylish color
+        
+        const pos = [[-4, 0], [4, 0], [0, 2.5], [0, -2.5]]; // Positions around table
+        pos.forEach(p => {
+            const sofa = new THREE.Mesh(sofaGeo, sofaMat);
+            sofa.position.set(p[0], 0.5, p[1]);
+            group.add(sofa);
+        });
+
+        // 3. Wall with 2 TV Screens
+        const tvWall = new THREE.Mesh(new THREE.BoxGeometry(0.2, 5, 8), matWhite);
+        tvWall.position.set(-6, 2.5, 0);
+        
+        const screenGeo = new THREE.PlaneGeometry(3, 1.8);
+        const screenMat = new THREE.MeshBasicMaterial({color: 0x000000});
+        
+        const tv1 = new THREE.Mesh(screenGeo, screenMat); tv1.position.set(0.15, 0.5, -1.5); tv1.rotation.y = Math.PI/2;
+        const tv2 = new THREE.Mesh(screenGeo, screenMat); tv2.position.set(0.15, 0.5, 1.5); tv2.rotation.y = Math.PI/2;
+        
+        tvWall.add(tv1, tv2);
+        group.add(tvWall);
+
+        this.scene.add(group);
+    }
+
+    buildBlock(rows, cols, startX, startZ, hasPillar, side) {
+        const spacingX = 5;
+        const spacingZ = 5;
 
         for(let r = 0; r < rows; r++) {
             for(let c = 0; c < cols; c++) {
-                const x = startX + (c * spacingX);
-                const z = startZ + (r * spacingZ);
+                const cx = startX + (c * spacingX);
+                const cz = startZ + (r * spacingZ);
 
-                // Check if this spot should be a structural PILLAR (Floor 10 support)
-                // We place it in the middle of the second block (row 2, col 2)
-                if (hasPillar && r === 2 && c === 2) {
-                    this.createPillar(x, z);
-                    continue; // Skip creating a desk here
+                // PILLAR LOGIC:
+                // Only for Right Side, Row 2, Col 0 (Next to passage)
+                if (hasPillar && r === 2 && c === 0) {
+                    this.createPillar(cx, cz);
+                    continue; 
                 }
 
-                // Make one specific desk Interactive (e.g., Row 1, Col 2 of Block 1)
-                const isMine = (!hasPillar && r === 1 && c === 2); 
-                this.buildSingleDesk(x, z, isMine);
+                // Make "My Desk" interactive
+                // Assume my desk is Left Side, Row 0, Col 1
+                const isMine = (side === "left" && r === 0 && c === 1);
+                
+                this.buildSingleDesk(cx, cz, isMine);
             }
         }
     }
 
     createPillar(x, z) {
-        const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 10, 32), matConcrete);
+        // White Pillar
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(2, 10, 2), matWhite);
         pillar.position.set(x, 5, z);
         this.scene.add(pillar);
+
+        // Plant Pot near pillar
+        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.6), matPot);
+        pot.position.set(x + 1.5, 0.3, z + 0.5);
         
-        // Add a safety sign or poster on pillar
-        const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2), new THREE.MeshStandardMaterial({ color: 0xff0000 }));
-        sign.position.set(x, 2.5, z + 1.6);
-        this.scene.add(sign);
+        // Simple Plant (Sphere for bush)
+        const plant = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5), matLeaf);
+        plant.position.set(0, 0.6, 0);
+        pot.add(plant);
+        
+        this.scene.add(pot);
     }
 
     buildSingleDesk(x, z, isInteractable) {
@@ -128,52 +189,48 @@ export class OfficeBuilder {
         deskGroup.position.set(x, 0, z);
 
         // Table
-        const table = new THREE.Mesh(new THREE.BoxGeometry(5, 0.1, 2.5), matDesk);
+        const table = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.1, 2.2), matDesk);
         table.position.y = 1.5;
         table.castShadow = true;
         
-        // Legs
-        const legGeo = new THREE.BoxGeometry(0.1, 1.5, 2.4);
-        const legL = new THREE.Mesh(legGeo, matMetal); legL.position.set(-2.4, 0.75, 0);
-        const legR = new THREE.Mesh(legGeo, matMetal); legR.position.set(2.4, 0.75, 0);
+        const legGeo = new THREE.BoxGeometry(0.1, 1.5, 2);
+        const legL = new THREE.Mesh(legGeo, matMetal); legL.position.set(-2.1, 0.75, 0);
+        const legR = new THREE.Mesh(legGeo, matMetal); legR.position.set(2.1, 0.75, 0);
 
         // Partition
-        const partition = new THREE.Mesh(new THREE.BoxGeometry(5, 0.8, 0.05), new THREE.MeshStandardMaterial({color: 0x336699}));
-        partition.position.set(0, 1.9, -1.25);
+        const partition = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.6, 0.05), new THREE.MeshStandardMaterial({color: 0x336699}));
+        partition.position.set(0, 1.8, -1);
 
-        // Monitor & Tech
-        const monScreen = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.9, 0.05), matBlack);
-        monScreen.position.set(0, 2.1, -0.8);
+        // Monitor
+        const monScreen = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.8, 0.05), matBlack);
+        monScreen.position.set(0, 2.0, -0.7);
         const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5), matBlack);
-        stand.position.set(0, 1.75, -0.8);
+        stand.position.set(0, 1.7, -0.7);
 
         if (isInteractable) {
-            const glowScreen = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.8), matScreenOn);
+            const glowScreen = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.7), matScreenOn);
             glowScreen.position.set(0, 0, 0.03);
             glowScreen.name = "HeroMonitor"; 
             monScreen.add(glowScreen);
+            this.interactables.push(glowScreen);
             
-            // Highlight Light
-            const spot = new THREE.SpotLight(0x00ffff, 5);
-            spot.position.set(0, 5, 0);
+            // Highlight my desk area
+            const spot = new THREE.SpotLight(0xffffff, 10);
+            spot.position.set(0, 6, 0);
             spot.target = table;
             deskGroup.add(spot);
-
-            this.interactables.push(glowScreen);
         }
 
         // Chair
         const chairGroup = new THREE.Group();
-        const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 1.2), matBlack);
-        const back = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.5, 0.1), matBlack);
-        back.position.set(0, 0.8, 0.6);
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1), matMetal);
-        base.position.set(0, -0.8, 0);
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(1, 0.1, 1), matBlack);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.1), matBlack);
+        back.position.set(0, 0.6, 0.5);
         const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8), matMetal);
         stem.position.set(0, -0.4, 0);
 
-        chairGroup.add(seat, back, base, stem);
-        chairGroup.position.set(0, 1, 1.5);
+        chairGroup.add(seat, back, stem);
+        chairGroup.position.set(0, 1, 1.2);
         if(!isInteractable) chairGroup.rotation.y = (Math.random() - 0.5);
         
         deskGroup.add(table, legL, legR, partition, monScreen, stand, chairGroup);
@@ -188,27 +245,26 @@ export class CityBuilder {
     }
 
     createCity() {
-        // Increased city brightness for "Evening but visible"
         const cityGroup = new THREE.Group();
         const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
         
         for(let i=0; i<80; i++) {
-            const h = Math.random() * 30 + 10;
-            const w = Math.random() * 8 + 4;
-            // Brighter building color
-            const building = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({ color: 0x222244 }));
+            const h = Math.random() * 40 + 10;
+            const w = Math.random() * 10 + 5;
+            const building = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a2e }));
             building.scale.set(w, h, w);
+            
+            // Pushed Back to z = -50 or less to avoid intersecting window
             building.position.set(
-                (Math.random() - 0.5) * 200,
-                h/2 - 30, 
-                -40 - (Math.random() * 80)
+                (Math.random() - 0.5) * 250,
+                h/2 - 40, 
+                -50 - (Math.random() * 100) // Changed from -40 to -50 start
             );
             
-            // Lit Windows
-            if(Math.random() > 0.2) {
+            if(Math.random() > 0.3) {
                 const winGeo = new THREE.PlaneGeometry(0.3, 0.3);
-                const winMat = new THREE.MeshBasicMaterial({ color: 0xffddaa }); // Warm window light
-                for(let k=0; k<15; k++) {
+                const winMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+                for(let k=0; k<10; k++) {
                     const win = new THREE.Mesh(winGeo, winMat);
                     win.position.set((Math.random()-0.5), (Math.random()-0.5), 0.51);
                     building.add(win);
@@ -220,29 +276,26 @@ export class CityBuilder {
     }
 
     createMetroSystem() {
-        const trackZ = -35; 
+        const trackZ = -45; // Moved back
         
-        // Pillars
-        const pillarGeo = new THREE.CylinderGeometry(2, 2, 40);
-        const concMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
-        for(let x = -100; x <= 100; x+=25) {
+        const pillarGeo = new THREE.CylinderGeometry(2, 2, 50);
+        const concMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        
+        for(let x = -150; x <= 150; x+=30) {
             const pillar = new THREE.Mesh(pillarGeo, concMat);
-            pillar.position.set(x, -20, trackZ);
+            pillar.position.set(x, -25, trackZ);
             this.scene.add(pillar);
         }
 
-        // Rail Bed
-        const railBed = new THREE.Mesh(new THREE.BoxGeometry(300, 2, 8), concMat);
+        const railBed = new THREE.Mesh(new THREE.BoxGeometry(400, 2, 8), concMat);
         railBed.position.set(0, 0, trackZ);
         this.scene.add(railBed);
 
-        // Train
         const trainMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8 });
-        for(let i=0; i<3; i++) {
-            const car = new THREE.Mesh(new THREE.BoxGeometry(10, 3, 2.5), trainMat);
-            car.position.set(i * 11, 2, 0);
+        for(let i=0; i<4; i++) {
+            const car = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 2.5), trainMat);
+            car.position.set(i * 11, 2.5, 0);
             
-            // Glowing Window Strip
             const winStrip = new THREE.Mesh(new THREE.PlaneGeometry(9, 1), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
             winStrip.position.set(0, 0.5, 1.26);
             car.add(winStrip);
@@ -250,14 +303,14 @@ export class CityBuilder {
             this.metroGroup.add(car);
         }
         
-        this.metroGroup.position.set(80, 0, trackZ);
+        this.metroGroup.position.set(100, 0, trackZ);
         this.scene.add(this.metroGroup);
     }
 
     updateMetro() {
-        this.metroGroup.position.x -= 0.5; // Faster train
-        if(this.metroGroup.position.x < -150) {
-            this.metroGroup.position.x = 150;
+        this.metroGroup.position.x -= 0.8;
+        if(this.metroGroup.position.x < -200) {
+            this.metroGroup.position.x = 200;
         }
     }
 }
