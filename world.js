@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { OfficeChair } from './OfficeChair.js'; // Import new file
-import { ModernDesk } from './ModernDesk.js';   // Import new file
+import { OfficeChair } from './OfficeChair.js'; 
+import { ModernDesk } from './ModernDesk.js';   
 
 // --- MATERIALS ---
 const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-const matCarpet = new THREE.MeshStandardMaterial({ color: 0x444455, roughness: 1 });
+const matCarpet = new THREE.MeshStandardMaterial({ color: 0x667788, roughness: 1 }); // Slightly bluer for day
 const matGlass = new THREE.MeshPhysicalMaterial({ 
     color: 0x88ccff, transmission: 0.9, opacity: 0.2, transparent: true, roughness: 0, side: THREE.DoubleSide 
 });
 const matDuct = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.7, roughness: 0.2 });
 const matPipe = new THREE.MeshStandardMaterial({ color: 0xcc0000, metalness: 0.3, roughness: 0.4 });
-const matPot = new THREE.MeshStandardMaterial({ color: 0xdddddd });
-const matLeaf = new THREE.MeshStandardMaterial({ color: 0x228822 });
+const matPot = new THREE.MeshStandardMaterial({ color: 0xffffff }); // White ceramic pot
+const matLeaf = new THREE.MeshStandardMaterial({ color: 0x22aa22 });
 const matCarBody = new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness: 0.6, roughness: 0.2 });
 const matWheel = new THREE.MeshStandardMaterial({ color: 0x111111 });
 const matHeadlight = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -21,8 +21,6 @@ export class OfficeBuilder {
         this.scene = scene;
         this.interactables = [];
         this.colliders = [];
-        
-        // Pre-build the detailed assets once, then clone them
         this.baseChair = new OfficeChair();
         this.baseDesk = new ModernDesk();
     }
@@ -40,7 +38,7 @@ export class OfficeBuilder {
     }
 
     createWallsAndWindows() {
-        // Back Wall
+        // 1. BACK WALL (Window to Metro) - Z = -20
         const backTop = new THREE.Mesh(new THREE.BoxGeometry(80, 3, 1), matWhite); backTop.position.set(0, 8.5, -20.5);
         const backBot = new THREE.Mesh(new THREE.BoxGeometry(80, 2, 1), matWhite); backBot.position.set(0, 1, -20.5);
         this.scene.add(backTop, backBot);
@@ -49,7 +47,7 @@ export class OfficeBuilder {
         this.scene.add(backGlass);
         this.colliders.push(backBot);
 
-        // Left Wall
+        // 2. LEFT WALL (Window) - X = -30
         const leftTop = new THREE.Mesh(new THREE.BoxGeometry(60, 3, 1), matWhite); 
         leftTop.rotation.y = Math.PI/2; leftTop.position.set(-30.5, 8.5, 0);
         const leftBot = new THREE.Mesh(new THREE.BoxGeometry(60, 2, 1), matWhite); 
@@ -61,11 +59,39 @@ export class OfficeBuilder {
         this.scene.add(leftGlass);
         this.colliders.push(leftBot);
 
-        // Right Wall
+        // 3. RIGHT WALL (Solid) - X = 30
         const rightWall = new THREE.Mesh(new THREE.BoxGeometry(1, 10, 60), matWhite);
         rightWall.position.set(30, 5, 0);
         this.scene.add(rightWall);
         this.colliders.push(rightWall);
+
+        // 4. FRONT WALL (Entry Door) - Z = 15 (Opposite window)
+        // Wall parts
+        const frontWallL = new THREE.Mesh(new THREE.BoxGeometry(35, 10, 1), matWhite); 
+        frontWallL.position.set(-20, 5, 15);
+        const frontWallR = new THREE.Mesh(new THREE.BoxGeometry(35, 10, 1), matWhite); 
+        frontWallR.position.set(20, 5, 15);
+        const frontWallTop = new THREE.Mesh(new THREE.BoxGeometry(10, 3, 1), matWhite);
+        frontWallTop.position.set(0, 8.5, 15);
+        
+        this.scene.add(frontWallL, frontWallR, frontWallTop);
+        this.colliders.push(frontWallL, frontWallR);
+
+        // The Glass Door
+        const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(10, 7, 0.5), new THREE.MeshStandardMaterial({color: 0x333333}));
+        doorFrame.position.set(0, 3.5, 15);
+        const doorGlass = new THREE.Mesh(new THREE.PlaneGeometry(4, 6.5), matGlass);
+        doorGlass.position.set(-2.1, 3.5, 15.3); // Left Door
+        const doorGlass2 = new THREE.Mesh(new THREE.PlaneGeometry(4, 6.5), matGlass);
+        doorGlass2.position.set(2.1, 3.5, 15.3); // Right Door
+        
+        // Handles
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1), new THREE.MeshStandardMaterial({color: 0xeeeeee}));
+        handle.position.set(-0.5, 3.5, 15.4);
+        const handle2 = handle.clone();
+        handle2.position.set(0.5, 3.5, 15.4);
+        
+        this.scene.add(doorFrame, doorGlass, doorGlass2, handle, handle2);
     }
 
     createCeilingDetails() {
@@ -89,8 +115,8 @@ export class OfficeBuilder {
         // Left Side: 4 rows x 3 cols
         this.buildBlock(4, 3, -20, -15, false, "left");
 
-        // Right Side: 4 rows x 5 cols (closer to center)
-        this.buildBlock(4, 5, 2, -15, true, "right");
+        // Right Side: 4 rows x 4 cols (Updated as requested)
+        this.buildBlock(4, 4, 5, -15, true, "right");
     }
 
     buildBlock(rows, cols, startX, startZ, hasPillar, side) {
@@ -107,9 +133,8 @@ export class OfficeBuilder {
                     continue; 
                 }
 
-                // Make "My Desk" interactive (Left Side, Row 0, Col 1)
+                // "My Desk" is Left, Row 0, Col 1
                 const isMine = (side === "left" && r === 0 && c === 1);
-                
                 this.placeWorkstation(cx, cz, isMine);
             }
         }
@@ -121,11 +146,27 @@ export class OfficeBuilder {
         this.scene.add(pillar);
         this.colliders.push(pillar);
 
-        const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.6), matPot);
-        pot.position.set(x + 1.5, 0.3, z + 0.5);
-        const plant = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5), matLeaf);
-        plant.position.set(0, 0.6, 0);
-        pot.add(plant);
+        // Detailed Pot (Lathe Geometry for curve)
+        const points = [];
+        for ( let i = 0; i < 10; i ++ ) {
+            points.push( new THREE.Vector2( Math.sin( i * 0.2 ) * 0.3 + 0.2, ( i - 5 ) * 0.1 ) );
+        }
+        const potGeo = new THREE.LatheGeometry( points, 20 );
+        const pot = new THREE.Mesh( potGeo, matPot );
+        // MOVED: Other side of pillar (z - 1.5 instead of z + 0.5)
+        pot.position.set(x - 1.5, 0.5, z);
+        pot.scale.set(1.5, 1.5, 1.5);
+        
+        // Detailed Plant (Bunch of spheres)
+        const plantGroup = new THREE.Group();
+        const leafGeo = new THREE.DodecahedronGeometry(0.3);
+        for(let i=0; i<5; i++) {
+            const leaf = new THREE.Mesh(leafGeo, matLeaf);
+            leaf.position.set(Math.random()*0.4-0.2, 0.3 + Math.random()*0.3, Math.random()*0.4-0.2);
+            plantGroup.add(leaf);
+        }
+        pot.add(plantGroup);
+        
         this.scene.add(pot);
         this.colliders.push(pot);
     }
@@ -134,17 +175,12 @@ export class OfficeBuilder {
         const stationGroup = new THREE.Group();
         stationGroup.position.set(x, 0, z);
 
-        // 1. Get Detailed Desk
-        // Note: We create a new instance to allow specific "isInteractable" screen logic
         const deskObj = new ModernDesk(); 
         const deskMesh = deskObj.build(isInteractable);
         stationGroup.add(deskMesh);
 
-        // Add to interactables if it's the hero screen
         if (deskObj.interactableScreen) {
             this.interactables.push(deskObj.interactableScreen);
-            
-            // Add Spotlight for my desk
             const spot = new THREE.SpotLight(0xffffff, 8);
             spot.position.set(0, 6, 0);
             spot.target = deskMesh;
@@ -154,17 +190,14 @@ export class OfficeBuilder {
             stationGroup.add(spot.target);
         }
 
-        // 2. Get Detailed Chair
         const chairMesh = this.baseChair.getMesh();
         chairMesh.position.set(0, 0, 1.2);
         if(!isInteractable) {
-            // Randomly rotate/push in chairs for realism
             chairMesh.rotation.y = (Math.random() - 0.5) * 1.0; 
             chairMesh.position.z = 1.0 + Math.random() * 0.4;
         }
         stationGroup.add(chairMesh);
 
-        // 3. Add Invisible Collider for Car
         const collider = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2, 2.2), new THREE.MeshBasicMaterial({visible: false}));
         collider.position.set(x, 1, z);
         this.scene.add(collider);
@@ -186,7 +219,7 @@ export class RCCar {
 
         this.createCarMesh();
         
-        // Start position near user desk
+        // Start position
         this.mesh.position.set(-15, 0.4, -5); 
         this.scene.add(this.mesh);
     }
@@ -252,14 +285,14 @@ export class CityBuilder {
         for(let i=0; i<80; i++) {
             const h = Math.random() * 40 + 10;
             const w = Math.random() * 10 + 5;
-            const building = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a2e }));
+            const building = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({ color: 0x8899aa })); // Lighter for Day
             building.scale.set(w, h, w);
             building.position.set(
                 (Math.random() - 0.5) * 250, h/2 - 40, -60 - (Math.random() * 100)
             );
             if(Math.random() > 0.3) {
                 const winGeo = new THREE.PlaneGeometry(0.3, 0.3);
-                const winMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+                const winMat = new THREE.MeshBasicMaterial({ color: 0xaaccff }); // Reflecting sky
                 for(let k=0; k<10; k++) {
                     const win = new THREE.Mesh(winGeo, winMat);
                     win.position.set((Math.random()-0.5), (Math.random()-0.5), 0.51);
@@ -273,7 +306,7 @@ export class CityBuilder {
     createMetroSystem() {
         const trackZ = -45;
         const pillarGeo = new THREE.CylinderGeometry(2, 2, 50);
-        const concMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const concMat = new THREE.MeshStandardMaterial({ color: 0x999999 }); // Lighter concrete
         for(let x = -150; x <= 150; x+=30) {
             const pillar = new THREE.Mesh(pillarGeo, concMat);
             pillar.position.set(x, -25, trackZ);
@@ -282,11 +315,11 @@ export class CityBuilder {
         const railBed = new THREE.Mesh(new THREE.BoxGeometry(400, 2, 8), concMat);
         railBed.position.set(0, 0, trackZ);
         this.scene.add(railBed);
-        const trainMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.8 });
+        const trainMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, metalness: 0.8 });
         for(let i=0; i<4; i++) {
             const car = new THREE.Mesh(new THREE.BoxGeometry(10, 3.5, 2.5), trainMat);
             car.position.set(i * 11, 2.5, 0);
-            const winStrip = new THREE.Mesh(new THREE.PlaneGeometry(9, 1), new THREE.MeshBasicMaterial({ color: 0x00ffff }));
+            const winStrip = new THREE.Mesh(new THREE.PlaneGeometry(9, 1), new THREE.MeshBasicMaterial({ color: 0x333333 })); // Darker windows for day
             winStrip.position.set(0, 0.5, 1.26);
             car.add(winStrip);
             this.metroGroup.add(car);
