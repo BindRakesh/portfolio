@@ -4,56 +4,60 @@ import { OfficeBuilder, CityBuilder } from './world.js';
 
 // --- SCENE & ATMOSPHERE ---
 const scene = new THREE.Scene();
-// Changed to a Twilight Blue (Evening but bright)
-scene.background = new THREE.Color(0x1a1a2e); 
-// Lighter fog to show city depth
-scene.fog = new THREE.FogExp2(0x1a1a2e, 0.015);
+scene.background = new THREE.Color(0x222233); // Brighter Evening Blue
+scene.fog = new THREE.FogExp2(0x222233, 0.01); // Less dense fog for clarity
 
 // --- CAMERA ---
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
-// Position camera to look at "Your Desk"
-camera.position.set(2, 4, 6); 
+// Position camera to look at the new layout
+camera.position.set(-5, 6, 8); 
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-// Enable proper lighting calculation
-renderer.useLegacyLights = false; 
+renderer.useLegacyLights = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2; // Increase overall brightness
 document.body.appendChild(renderer.domElement);
 
-// --- CONTROLS (RESTRICTED) ---
+// --- CONTROLS ---
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 1, 0); 
+controls.target.set(-5, 1, 0); // Focus on the User's desk area
 controls.enableDamping = true;
-controls.maxPolarAngle = Math.PI / 2 - 0.1; // Don't go below floor
-// RESTRICTION: Keep user inside the office
-controls.minDistance = 2;  // Can't zoom inside the monitor
-controls.maxDistance = 15; // Can't zoom out through the walls
+controls.maxPolarAngle = Math.PI / 2 - 0.1;
+controls.minDistance = 2;
+controls.maxDistance = 20;
 
 // --- BUILD WORLD ---
 const office = new OfficeBuilder(scene);
 office.createFloor();
-office.createWallsAndWindows(); // Updated function for Left + Back windows
-office.createCeilingLights();   // New bright tube lights
-office.createWorkstations();    // Updated layout (3x5 and 4x6)
+office.createWallsAndWindows(); 
+office.createCeilingDetails(); // NEW: Ducts and Pipes
+office.createLayout();         // NEW: Split layout with Meeting Area
 
 const city = new CityBuilder(scene);
 city.createCity();
 city.createMetroSystem();
 
 // --- LIGHTING (BRIGHTER) ---
-// 1. General brightness (Ambience)
-const ambient = new THREE.AmbientLight(0xffffff, 0.7); 
-scene.add(ambient);
+// 1. Hemisphere Light (Simulates light bouncing off white walls)
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+hemiLight.position.set(0, 20, 0);
+scene.add(hemiLight);
 
-// 2. Sunlight from outside (Evening Sun)
-const sunLight = new THREE.DirectionalLight(0xffaa88, 1.5);
-sunLight.position.set(-50, 20, -50);
+// 2. Directional Sun (Evening warmth coming from window)
+const sunLight = new THREE.DirectionalLight(0xffccaa, 1.5);
+sunLight.position.set(-50, 20, -20);
 sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048; // Sharp shadows
+sunLight.shadow.mapSize.height = 2048;
 scene.add(sunLight);
 
-// --- INTERACTION LOGIC ---
+// 3. General Ambient (Base brightness)
+const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambient);
+
+// --- INTERACTION ---
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
@@ -65,23 +69,16 @@ window.addEventListener('click', (event) => {
     const intersects = raycaster.intersectObjects(office.interactables);
 
     if (intersects.length > 0) {
-        const overlay = document.getElementById('screen-overlay');
-        const title = document.getElementById('overlay-title');
-        const text = document.getElementById('overlay-text');
-
-        overlay.classList.remove('hidden');
-        title.innerText = "System Access Granted";
-        text.innerHTML = `
-            <h3>Rakesh | Engineer</h3>
-            <p><strong>Project:</strong> Portfolio V1</p>
-            <p><strong>Status:</strong> Building 3D Environments</p>
-            <hr/>
-            <p>Click 'Close System' to return to view.</p>
+        document.getElementById('screen-overlay').classList.remove('hidden');
+        document.getElementById('overlay-title').innerText = "Rakesh's System";
+        document.getElementById('overlay-text').innerHTML = `
+            <h3>Full Stack Engineer</h3>
+            <p><strong>Status:</strong> Coding 3D Worlds.</p>
+            <p><strong>Skills:</strong> React, Three.js, Node.js</p>
         `;
     }
 });
 
-// --- ANIMATION LOOP ---
 function animate() {
     requestAnimationFrame(animate);
     city.updateMetro(); 
