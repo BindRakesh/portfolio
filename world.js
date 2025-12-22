@@ -5,8 +5,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // If your models look too big/small, change these numbers.
 const SCALES = {
     chair: 1.0,  // Try 0.01 if it's huge, or 10.0 if tiny
-    plant: 1.5,
-    car: 0.5
+    plant: 0.005,
+    car: 0.3
 };
 
 // --- SHARED MATERIALS ---
