@@ -2,37 +2,93 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rakesh | Developer Portfolio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rakesh | 3D Portfolio</title>
     <link rel="stylesheet" href="style.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+      "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19.1/+esm",
+      "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+    }
+  }
+</script>
 </head>
 <body>
-    <div id="ui-layer">
-        <div id="interaction-prompt">Click the highlighted workstation to interact</div>
-        <div id="screen-overlay" class="hidden">
-            <div class="content">
-                <h2 id="overlay-title">Title</h2>
-                <p id="overlay-text">Details...</p>
-                <button onclick="closeOverlay()">Close System</button>
-            </div>
+<div id="reset-zone-ui" style="display: none; position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.8); padding: 20px; border: 2px solid #00ffcc; border-radius: 10px; text-align: center; color: white; font-family: monospace; z-index: 100;">
+    <h2 style="margin: 0 0 10px 0; color: #00ffcc;">📦 WAREHOUSE ZONE</h2>
+    <p>Press <span style="background: #fff; color: #000; padding: 2px 6px; border-radius: 4px; font-weight: bold;">ENTER</span> to reset all boxes</p>
+    <button id="btn-reset-boxes" style="margin-top: 10px; padding: 8px 16px; background: #00ffcc; border: none; font-weight: bold; cursor: pointer;">RESET NOW</button>
+</div>
+    <div id="loader-container">
+        <div class="spinner-box">
+            <div class="neon-circle"></div>
+            <div class="loader-text">INITIALIZING WORLD</div>
+            <div class="loader-subtext" id="loading-status">0%</div>
         </div>
     </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
+    <div id="start-screen" class="hidden">
+        <div class="hud-container">
+            <div class="engine-button" id="start-btn-trigger">
+                <div class="ring-dashed"></div>
+                <div class="ring-solid"></div>
+                <div class="glow-core"></div>
+                <div class="label-main">START</div>
+                <div class="label-sub">ENGINE</div>
+            </div>
+            
+            <div class="prompt-text">
+                PRESS 
+                
+                <div class="volumetric-icon">
+                    <div class="layer" style="--i:1">↵</div>
+                    <div class="layer" style="--i:2">↵</div>
+                    <div class="layer" style="--i:3">↵</div>
+                    <div class="layer" style="--i:4">↵</div>
+                    <div class="layer" style="--i:5">↵</div>
+                </div>
 
-    <script type="module" src="./main.js"></script>
+                TO DRIVE
+            </div>
+        </div>
+        
+        <button id="start-btn" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer;"></button>
+    </div>
 
+    <div id="ui-layer" style="display: none;">
+        <div id="instructions" class="desktop-only">DRIVE TO ZONES TO INTERACT</div>
+        
+        <div id="speed-hud">
+            <div class="speed-ring"></div>
+            <div class="speed-content">
+                <span id="speed-value">0</span>
+                <span class="speed-unit">KM/H</span>
+            </div>
+        </div>
+
+        <div id="screen-overlay">
+            <h2 id="overlay-title">Title</h2>
+            <div id="overlay-text">Content</div>
+            <div class="mobile-hint">(Tap outside to close)</div>
+        </div>
+    </div>
+    
+    <div id="joystick-zone"></div>
+
+    <script type="module" src="main.js"></script>
     <script>
-        function closeOverlay() {
-            document.getElementById('screen-overlay').classList.add('hidden');
-        }
+        const checkLoad = setInterval(() => {
+            const loader = document.getElementById('loader-container');
+            if(loader && loader.classList.contains('fade-out')) {
+                document.getElementById('start-screen').classList.remove('hidden');
+                clearInterval(checkLoad);
+            }
+        }, 500);
     </script>
 </body>
 </html>
