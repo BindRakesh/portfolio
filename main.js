@@ -14,6 +14,7 @@ import { CityBuilder, TrafficSystem } from './city.js';
 import { ZoneSystem } from './zones.js';
 import { PropSystem } from './props.js';
 import { ParticleSystem } from './particles.js';
+import { SkySystem } from './world.js';
 
 const resetUI = document.getElementById('reset-zone-ui');
 const resetBtn = document.getElementById('btn-reset-boxes'); // <--- Define it here
@@ -29,6 +30,8 @@ let activeZone = null; // <--- Global variable to track where the car is
 
 // --- GAME STATE ---
 let gameStarted = false;
+let lastZone = null;     // NEW: Tracks the previous frame's zone
+let uiBlocked = false;
 let idleTimer = 0;
 
 // --- LOADING MANAGER ---
@@ -122,6 +125,7 @@ city.createMetroSystem();
 
 const traffic = new TrafficSystem(scene);
 const zones = new ZoneSystem(scene); 
+const sky = new SkySystem(scene);
 const car = new RCCar(scene, physics); 
 const props = new PropSystem(scene, physics, audio);
 const particles = new ParticleSystem(scene);
@@ -172,6 +176,10 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') keys.a = true;
     if (e.key === 'ArrowRight') keys.d = true;
     if(e.code === 'Space') keys.space = true;
+    if (e.key === 'Escape') {
+        uiBlocked = true; // Block popups
+        updateUI(null);   // Close immediately
+    }
 
     // Reset Car Position
     if (e.key.toLowerCase() === 'r') {
@@ -385,6 +393,8 @@ function animate() {
     city.updateMetro();
     traffic.update(dt);
     props.update();
+
+    if(sky) sky.update();
     
     // 3. Particles (Check existence first)
     if (particles && particles.update) {
@@ -438,6 +448,19 @@ audio.update(car.speed, car.steering, isEngineActive);
 
     // const activeZone = zones.check(car.mesh.position);
     activeZone = zones.check(car.mesh.position);
+    const currentZone = zones.check(car.mesh.position);
+    // 1. If we moved to a new zone (or left one), reset the block
+    if (currentZone !== lastZone) {
+        uiBlocked = false;
+        lastZone = currentZone;
+    }
+
+    // 2. Only set activeZone if user hasn't blocked it
+    if (currentZone && !uiBlocked) {
+        activeZone = currentZone;
+    } else {
+        activeZone = null;
+    }
     updateUI(activeZone);
 
     // --- RESET ZONE LOGIC ---
