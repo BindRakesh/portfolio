@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as Mats from './materials.js';
 import { OfficeChair } from './OfficeChair.js';
 
-// FIX: Hardcoded scales
+// CONFIGURATION: Adjust size here if it's still too small/big
 const SCALES = { chair: 2.7, plant: 0.009 };
 
 // --- ENHANCED DESK CLASS ---
@@ -77,10 +77,9 @@ export class OfficeBuilder {
 
     // --- ANIMATION LOOP ---
     update(carPos, time) {
-        // 1. Automatic Door Logic
+        // 1. Automatic Door
         if(this.doorState.mesh && this.doorState.body) {
             const dist = carPos.distanceTo(new THREE.Vector3(0, 0, 20.5));
-            // Open if closer than 8 meters
             const targetX = (dist < 8) ? 2.5 : 0; 
             this.doorState.mesh.position.x = THREE.MathUtils.lerp(this.doorState.mesh.position.x, targetX, 0.1);
             this.doorState.body.position.x = this.doorState.mesh.position.x;
@@ -92,7 +91,7 @@ export class OfficeBuilder {
             this.heroScreen.material.color.setHSL(0.55, 1.0, 0.3 + (pulse * 0.4)); 
         }
 
-        // 3. Elevator Logic
+        // 3. Elevators
         if(this.lifts.length > 0) {
             for(const lift of this.lifts) {
                 const dist = carPos.distanceTo(lift.triggerPos);
@@ -131,7 +130,7 @@ export class OfficeBuilder {
     }
 
     createPassage() {
-        // 1. Hallway Floor
+        // Hallway Floor
         const hallFloor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), Mats.matWood);
         hallFloor.rotation.x = -Math.PI / 2; 
         hallFloor.position.set(0, 0.01, 30); 
@@ -153,7 +152,7 @@ export class OfficeBuilder {
         this.scene.add(wallR);
         this.addStaticBody(10, 5, 30, 1, 10, 20, true);
 
-        // --- BACK WALL (Banner) ---
+        // --- BACK WALL ---
         const wallBack = new THREE.Mesh(new THREE.BoxGeometry(20, 10, 1), Mats.matWall);
         wallBack.position.set(0, 5, 40.5); 
         this.scene.add(wallBack);
@@ -161,7 +160,6 @@ export class OfficeBuilder {
 
         const bannerLoader = new THREE.TextureLoader(this.loader.manager);
         const bannerTex = bannerLoader.load('https://picsum.photos/seed/office/1024/512'); 
-        
         const bannerGeo = new THREE.PlaneGeometry(12, 6);
         const bannerMat = new THREE.MeshBasicMaterial({ map: bannerTex });
         const banner = new THREE.Mesh(bannerGeo, bannerMat);
@@ -217,34 +215,30 @@ export class OfficeBuilder {
         const frontL = new THREE.Mesh(new THREE.BoxGeometry(29, 10, 1), Mats.matWall); frontL.position.set(-15.5, 5, 20.5); this.scene.add(frontL); this.addStaticBody(-15.5, 5, 20.5, 29, 10, 1, true);
         const frontR = new THREE.Mesh(new THREE.BoxGeometry(29, 10, 1), Mats.matWall); frontR.position.set(15.5, 5, 20.5); this.scene.add(frontR); this.addStaticBody(15.5, 5, 20.5, 29, 10, 1, true);
         
-        // Header (Wall above door)
+        // Header
         const header = new THREE.Mesh(new THREE.BoxGeometry(2, 7, 1), Mats.matWall); 
         header.position.set(0, 6.5, 20.5); 
         this.scene.add(header);
 
-        // --- RESTORED: DOOR MESH, HANDLE, SCANNER ---
-        
         // 1. Automatic Glass Door
         const doorGeo = new THREE.BoxGeometry(2.0, 3.0, 0.2);
         const doorMesh = new THREE.Mesh(doorGeo, Mats.matGlass);
         doorMesh.position.set(0, 1.5, 20.5);
         this.scene.add(doorMesh);
 
-        // 2. Door Physics (Kinematic so it moves)
+        // 2. Door Physics
         const doorBody = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, material: this.physics.groundMat });
         doorBody.addShape(new CANNON.Box(new CANNON.Vec3(1.0, 1.5, 0.1)));
         doorBody.position.set(0, 1.5, 20.5);
         this.physics.world.addBody(doorBody);
-
         this.doorState = { mesh: doorMesh, body: doorBody };
 
-        // 3. Handle (Attached to scene, moves with door in update logic if attached to mesh, but for now static visuals are tricky with physics. 
-        // Best approach: Add handle TO the doorMesh so it moves automatically)
+        // 3. Handle
         const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), Mats.matChrome);
-        handle.position.set(0.6, 0, 0.15); // Local offset
+        handle.position.set(0.6, 0, 0.15); 
         doorMesh.add(handle);
 
-        // 4. Scanner (Wall mounted, static)
+        // 4. Scanner
         const scannerGroup = new THREE.Group(); 
         scannerGroup.position.set(1.5, 1.4, 20.6); 
         const scanBox = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.05), Mats.matScanner); 
@@ -308,6 +302,11 @@ export class OfficeBuilder {
                 obj.clear(); 
                 const chair = new OfficeChair(this.loader.manager); 
                 chair.mesh.rotation.y = Math.PI; 
+                
+                // FIX: SCALE APPLIED HERE (2.7)
+                const s = SCALES.chair; 
+                chair.mesh.scale.set(s, s, s);
+
                 obj.add(chair.mesh); 
             } 
         });
