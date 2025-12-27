@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js'; // <--- NEW IMPORT
 import * as Mats from './materials.js';
 import { OfficeChair } from './OfficeChair.js';
 
@@ -17,36 +18,101 @@ class ModernDesk {
     build(isInteractable, isHero) {
         const deskGroup = new THREE.Group();
         
-        // 1. Table Top
+        // --- 1. DESK BASICS (Wood Top, Metal Legs) ---
         const top = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.08, 2.2), Mats.matWood); 
         top.position.y = 1.5; top.castShadow = true; deskGroup.add(top);
         
-        // 2. Legs
         const legL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 2.0), Mats.matBlackMetal); legL.position.set(-2.15, 0.75, 0); deskGroup.add(legL);
         const legR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.5, 2.0), Mats.matBlackMetal); legR.position.set(2.15, 0.75, 0); deskGroup.add(legR);
-        
-        // 3. Monitor
-        const monitorGroup = new THREE.Group();
-        monitorGroup.position.set(0, 2.1, -0.6);
-        const monitorStand = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), Mats.matBlackMetal);
-        monitorStand.position.y = -0.3; monitorGroup.add(monitorStand);
-        const monitorFrame = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.0, 0.05), Mats.matScreenBlack);
-        
-        let screenMat = Mats.matScreenBlack;
-        if(isInteractable) screenMat = Mats.matScreenGlow;
-        if(isHero) screenMat = new THREE.MeshBasicMaterial({ color: 0xff3333 }); 
 
-        const display = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.9), screenMat); 
-        display.position.set(0, 0, 0.03); 
-        if(isHero) this.heroScreen = display;
+        // --- 2. DELL MONITOR DESIGN ---
+        const monitorGroup = new THREE.Group();
+        monitorGroup.position.set(0, 1.55, -0.6); // Base sits on table (y=1.55)
+
+        // A. The Base (Flat Silver Rectangle)
+        // Similar to the image: Thin, flat, silver
+        const standBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.02, 0.5), Mats.matChrome);
+        standBase.position.set(0, 0.01, 0); // Resting on desk
+        monitorGroup.add(standBase);
+
+        // B. The Pillar (Silver Vertical Stand)
+        const standPillar = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.05), Mats.matChrome);
+        standPillar.position.set(0, 0.3, -0.1); // Slightly back
+        monitorGroup.add(standPillar);
+
+        // C. The Panel (Black, Thin Bezel)
+        // 24-inch aspect ratio approx
+        const panelGeo = new THREE.BoxGeometry(2.0, 1.1, 0.05);
+        const panel = new THREE.Mesh(panelGeo, Mats.matScreenBlack);
+        panel.position.set(0, 0.85, 0); // Lifted by stand
+        monitorGroup.add(panel);
+
+        // --- 3. THE SCREEN (Website or Dummy) ---
         
-        monitorFrame.add(display); monitorGroup.add(monitorFrame); deskGroup.add(monitorGroup);
+        if (isHero) {
+            // --- HERO MONITOR (Real Website) ---
+            
+            // 1. Create the HTML Iframe
+            const div = document.createElement('div');
+            div.style.width = '1280px';
+            div.style.height = '720px';
+            div.style.backgroundColor = '#000';
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = 'https://rksxo-portfolio.netlify.app/'; 
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = '0px';
+            div.appendChild(iframe);
+
+            // 2. CSS3D Object (The Content)
+            const cssObj = new CSS3DObject(div);
+            // Scale logic: We want 1280px to fit into our 1.9 width monitor
+            // 1.9 / 1280 = 0.00148
+            const scale = 0.00148; 
+            cssObj.scale.set(scale, scale, scale);
+            cssObj.position.set(0, 0.85, 0.026); // Match panel position, slightly front
+            
+            // Important: Rotate 180 if it appears mirrored, otherwise keep 0
+            // cssObj.rotation.y = Math.PI; 
+            
+            // Add to the group (NOT the panel, to avoid scaling issues)
+            monitorGroup.add(cssObj);
+
+            // 3. THE OCCLUSION MASK (The "Window")
+            // This special mesh creates a "hole" in the WebGL world to see the CSS world behind
+            const maskMaterial = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                opacity: 0,   // Invisible...
+                blending: THREE.NoBlending, // ...but "cuts" through the world
+                side: THREE.DoubleSide
+            });
+            
+            // Size matches the CSS object (1280 * scale, 720 * scale)
+            const maskGeo = new THREE.PlaneGeometry(1280 * scale, 720 * scale);
+            const maskMesh = new THREE.Mesh(maskGeo, maskMaterial);
+            maskMesh.position.copy(cssObj.position);
+            monitorGroup.add(maskMesh);
+
+        } else {
+            // --- DUMMY MONITOR (Static Glow) ---
+            let screenMat = Mats.matScreenBlack;
+            if(isInteractable) screenMat = Mats.matScreenGlow;
+
+            const display = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.0), screenMat);
+            display.position.set(0, 0.85, 0.03);
+            monitorGroup.add(display);
+        }
+
+        deskGroup.add(monitorGroup);
         
         // 4. Props
         const laptop = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.02, 0.5), Mats.matChrome);
-        laptop.position.set(1.2, 1.55, 0.3); laptop.rotation.y = -0.3; deskGroup.add(laptop);
+        laptop.position.set(1.4, 1.55, 0.3); laptop.rotation.y = -0.3; deskGroup.add(laptop);
+        
         const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.15), Mats.matWhite);
-        mug.position.set(-1.2, 1.58, 0.4); deskGroup.add(mug);
+        mug.position.set(-1.4, 1.58, 0.4); deskGroup.add(mug);
+        
         const keyboard = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.02, 0.3), Mats.matKeys); 
         keyboard.position.set(0, 1.55, 0.3); deskGroup.add(keyboard);
 
@@ -270,7 +336,7 @@ export class OfficeBuilder {
             for(let c = 0; c < cols; c++) {
                 const cx = startX + (c * spacingX); const cz = startZ + (r * spacingZ);
                 if (hasPillar && r === 2 && c === 0) { this.createPillar(cx, cz); continue; }
-                const isHero = (side === "left" && r === 1 && c === 0);
+                const isHero = (side === "left" && r === 1 && c === 2);
                 this.placeWorkstation(cx, cz, isHero, isHero);
             }
         }
