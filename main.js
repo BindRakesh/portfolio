@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import GUI from 'lil-gui';
+import { CSS3DRenderer, CSS3DObject } from 'three/addons/renderers/CSS3DRenderer.js';
 
 // --- MODULE IMPORTS ---
 import { PhysicsWorld } from './physics.js';
@@ -84,13 +85,32 @@ const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerH
 camera.position.set(0, 60, 0); 
 camera.lookAt(0, 0, 0);
 
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+const renderer = new THREE.WebGLRenderer({ antialias: true, 
+    alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.NoToneMapping; 
+renderer.domElement.style.position = 'absolute';
+renderer.domElement.style.top = '0';
+renderer.domElement.style.zIndex = '1'; // Sits ON TOP of the website
+// Allow clicks to pass through to the website when we are parked
+renderer.domElement.style.pointerEvents = 'auto'; 
+document.body.appendChild(renderer.domElement);
+
 renderer.toneMappingExposure = 0.5; 
 document.body.appendChild(renderer.domElement);
+
+// --- CSS3D RENDERER (The Website Layer) ---
+const cssRenderer = new CSS3DRenderer();
+cssRenderer.setSize(window.innerWidth, window.innerHeight);
+cssRenderer.domElement.style.position = 'absolute';
+cssRenderer.domElement.style.top = '0';
+cssRenderer.domElement.style.zIndex = '0'; // Behind everything
+// Important: 'none' allows you to click through to the game canvas.
+// We will toggle this to 'auto' only when looking at the screen later.
+cssRenderer.domElement.style.pointerEvents = 'none'; 
+document.body.appendChild(cssRenderer.domElement);
 
 // --- POST PROCESSING (BLOOM) ---
 const renderScene = new RenderPass(scene, camera);
@@ -134,7 +154,7 @@ const particles = new ParticleSystem(scene);
 const ambient = new THREE.AmbientLight(0xffffff, 1.5); 
 scene.add(ambient);
 
-const sun = new THREE.DirectionalLight(0xfff5e6, 2.5); 
+const sun = new THREE.DirectionalLight(0xfff5e6, 2.0); 
 sun.position.set(-30, 50, -30); 
 sun.castShadow = true; 
 sun.shadow.mapSize.width = 2048; 
@@ -216,36 +236,109 @@ window.addEventListener('keyup', (e) => {
     if(e.code === 'Space') keys.space = false; // <--- NEW
 });
 
-// --- MOBILE JOYSTICK ---
-if (window.nipplejs) {
-    const joystickManager = nipplejs.create({
-        zone: document.getElementById('joystick-zone'),
-        mode: 'static',
-        position: { left: '50%', top: '50%' },
-        color: 'white'
-    });
 
-    joystickManager.on('move', (evt, data) => {
-        // Reset keys
-        keys.w = keys.s = keys.a = keys.d = false;
+// --- MOBILE STEERING & PEDALS ---
+function setupMobileControls() {
+    // 1. PEDAL LOGIC
+    // We bind HTML buttons to the existing keyboard keys (w,s,space)
+    const setupBtn = (id, key) => {
+        const btn = document.getElementById(id);
+        if(!btn) return;
         
-        if (data.force > 0.1) {
-            const angle = data.angle.degree;
-            // Forward
-            if (angle > 45 && angle < 135) keys.w = true;
-            // Backward
-            else if (angle > 225 && angle < 315) keys.s = true;
-            // Right
-            if (angle < 90 || angle > 270) keys.d = true; 
-            // Left
-            if (angle > 90 && angle < 270) keys.a = true;
-        }
-    });
+        // Touch Start: Press Key
+        btn.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); // Stop browser zooming
+            keys[key] = true; 
+            btn.classList.add('active'); // Visual feedback
+        }, { passive: false });
 
-    joystickManager.on('end', () => {
-        keys.w = keys.s = keys.a = keys.d = false;
-    });
+        // Touch End: Release Key
+        btn.addEventListener('touchend', (e) => { 
+            e.preventDefault(); 
+            keys[key] = false; 
+            btn.classList.remove('active');
+        }, { passive: false });
+    };
+
+    setupBtn('btn-gas', 'w');       // Gas -> Forward
+    setupBtn('btn-rev', 's');       // Rev -> Backward
+    setupBtn('btn-brake', 'space'); // Brake -> Handbrake
+
+    // 2. STEERING WHEEL LOGIC
+    const wheel = document.getElementById('steering-wheel');
+    const zone = document.querySelector('.wheel-zone');
+    
+    if (wheel && zone) {
+        let isSteering = false;
+        let startAngle = 0;
+        let currentRotation = 0;
+
+        // Helper: Calculate angle between center of wheel and finger
+        const getAngle = (touch) => {
+            const rect = zone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            // atan2 returns angle in radians, convert to degrees
+            return Math.atan2(touch.clientY - centerY, touch.clientX - centerX) * (180 / Math.PI);
+        };
+
+        // Start Dragging
+        zone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isSteering = true;
+            wheel.style.transition = 'none'; // Remove smoothing for instant reaction
+            // Calculate initial offset so wheel doesn't "jump" to finger
+            startAngle = getAngle(e.touches[0]) - currentRotation;
+        }, { passive: false });
+
+        // Rotate
+        zone.addEventListener('touchmove', (e) => {
+            if (!isSteering) return;
+            e.preventDefault();
+            
+            const angle = getAngle(e.touches[0]);
+            let rotation = angle - startAngle;
+
+            // Clamp Rotation: Limit wheel to 90 degrees left/right
+            // This prevents spinning it like a helicopter
+            if (rotation > 90) rotation = 90;
+            if (rotation < -90) rotation = -90;
+
+            currentRotation = rotation;
+            
+            // Visual Rotation
+            wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+            // LOGIC MAPPING: Convert Rotation to 'A' (Left) or 'D' (Right)
+            // We use a small "deadzone" (10 deg) so you can drive straight easily
+            keys.a = (currentRotation < -10);
+            keys.d = (currentRotation > 10);
+        }, { passive: false });
+
+        // Release (Auto-Center)
+        const resetWheel = (e) => {
+            if(e) e.preventDefault();
+            isSteering = false;
+            keys.a = false;
+            keys.d = false;
+            currentRotation = 0;
+            
+            // Add transition back so it "springs" to center smoothly
+            wheel.style.transition = 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            wheel.style.transform = `rotate(0deg)`;
+        };
+
+        zone.addEventListener('touchend', resetWheel);
+        zone.addEventListener('touchcancel', resetWheel);
+    }
 }
+
+// Check if Mobile -> Init Controls
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+if (isMobile) {
+    setupMobileControls();
+}
+
 
 // --- UI UPDATE LOGIC ---
 const ui = document.getElementById('screen-overlay');
@@ -258,6 +351,19 @@ function updateUI(activeZone) {
         
         let title = ""; 
         let content = "";
+        
+
+        if (activeZone === 'projects' && car.speed < 0.1) {
+        // "Browsing Mode": Let clicks pass through the 3D world to the iframe
+        renderer.domElement.style.pointerEvents = 'none';
+    } else {
+        // "Driving Mode": Canvas grabs clicks (if you have drag controls)
+        renderer.domElement.style.pointerEvents = 'auto';
+    }
+
+    // Render both layers
+    cssRenderer.render(scene, camera);
+    renderer.render(scene, camera); //
         
         // 1. Existing Zones
         if (activeZone === 'about') {
@@ -397,8 +503,21 @@ function animate() {
     if(sky) sky.update();
     
     // 3. Particles (Check existence first)
+   // 3. Particles & Smoke
     if (particles && particles.update) {
-        particles.update();
+        // Run the particle physics
+        particles.update(dt); 
+
+        // Check if the car is drifting (using the new flag we added)
+        if (car.isDrifting) {
+            // Get positions of rear tires
+            const wheels = car.getRearWheelPositions();
+            
+            // Emit smoke! 
+            // (Math.random() prevents a solid line, makes it look puffier)
+            if (Math.random() > 0.1) particles.emitSmoke(wheels[0]);
+            if (Math.random() > 0.1 ) particles.emitSmoke(wheels[1]);
+        }
     }
     
    // 4. Car & Audio
@@ -416,8 +535,7 @@ if (car.speed < 0.5 && !keys.w && !keys.s && !keys.space && !keys.ArrowUp && !ke
 const isEngineActive = idleTimer < 3.0;
 
 // Pass this new status to audio
-audio.update(car.speed, car.steering, isEngineActive);
-
+audio.update(car.speed, car.steering, isEngineActive, car.isDrifting);
     // --- NEW: UPDATE SPEEDOMETER ---
     if(speedEl) {
         // car.speed is roughly m/s. 
@@ -548,6 +666,9 @@ audio.update(car.speed, car.steering, isEngineActive);
 
     // 8. Render
     composer.render();
+    cssRenderer.render(scene, camera);
+    renderer.render(scene, camera); // WebGL on top
+
 }
 
 // Handle Window Resize
@@ -556,6 +677,7 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     composer.setSize(window.innerWidth, window.innerHeight);
+    cssRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
 const cameraState = {
