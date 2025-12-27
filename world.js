@@ -107,8 +107,8 @@ class ModernDesk {
 
 // --- OFFICE BUILDER ---
 export class OfficeBuilder {
-    constructor(scene, physicsWorld) {
-        this.scene = scene; this.physics = physicsWorld; this.interactables = []; this.loader = new GLTFLoader(); this.loadModels();
+    constructor(scene, physicsWorld, manager) {
+        this.scene = scene; this.physics = physicsWorld; this.interactables = []; this.loader = new GLTFLoader(manager); this.loadModels();
     }
     loadModels() {
         this.loader.load('./chair.glb', (gltf) => {
@@ -183,7 +183,7 @@ export class OfficeBuilder {
 export class ZoneSystem {
     constructor(scene) { this.scene = scene; this.zones = []; this.createZone(0, 15, "CONTACT", "contact"); this.createZone(-10, 5, "ABOUT", "about"); this.createZone(10, 5, "PROJECTS", "projects"); }
     createZone(x, z, label, type) {
-        const texture = createTexture('zone', label); const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.8, depthWrite: false }));
+        const texture = createTexture('zone', label); const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.8, depthWrite: false, fog: false }));
         mesh.rotation.x = -Math.PI / 2; mesh.position.set(x, 0.05, z); this.scene.add(mesh); this.zones.push({ position: new THREE.Vector3(x, 0, z), radius: 2.0, type: type });
     }
     check(carPosition) { for(let zone of this.zones) { if(carPosition.distanceTo(zone.position) < zone.radius) return zone.type; } return null; }
