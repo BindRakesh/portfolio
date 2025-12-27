@@ -88,16 +88,6 @@ body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; backgro
 .card-desc { font-size: 0.8rem; color: #94a3b8; }
 .tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: rgba(255, 107, 107, 0.15); color: var(--primary); margin-top: 8px; display: inline-block;}
 
-/* --- MOBILE --- */
-#joystick-zone { position: absolute; bottom: 50px; left: 50px; width: 120px; height: 120px; z-index: 10; pointer-events: auto; }
-.mobile-hint { display: none; font-size: 10px; color: #666; margin-top: 20px; text-align: center;}
-
-@media (max-width: 768px) {
-    .desktop-only { display: none; }
-    #screen-overlay { padding: 25px; width: 90%; }
-    #start-screen h1 { font-size: 1.5rem; }
-    .mobile-hint { display: block; }
-}
 
 @keyframes spin { 100% { transform: rotate(360deg); } }
 .hidden { display: none !important; }
@@ -371,4 +361,244 @@ body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; backgro
 /* Mobile Adjustment */
 @media (max-width: 768px) {
     #speed-hud { bottom: 180px; right: 20px; transform: scale(0.8); }
+}
+
+/* --- CONTAINER --- */
+#mobile-controls {
+    display: none; /* Hidden on desktop */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Let clicks pass through empty areas */
+    z-index: 9999;
+}
+
+
+/* --- CONTAINER --- */
+#mobile-controls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10000;
+}
+
+/* Show on Mobile */
+@media (hover: none) and (pointer: coarse) {
+    #mobile-controls { display: block; }
+}
+
+/* --- STEERING WHEEL ZONE --- */
+.wheel-zone {
+    position: absolute;
+    bottom: 40px; /* Moved up slightly to avoid edge clicks */
+    left: 30px;
+    width: 160px;
+    height: 160px;
+    pointer-events: auto; /* Important for touch */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+
+/* --- THE WHEEL --- */
+#steering-wheel {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    border: none;
+    box-shadow: none;
+    transform-origin: center center;
+    transition: transform 0.1s ease-out;
+    filter: drop-shadow(0 5px 15px rgba(0,0,0,0.8)); /* Heavy shadow for 3D float */
+}
+
+/* 1. THE RIM (Thick Black Grip) */
+.wheel-rim {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    border: 18px solid #222; /* Dark Rubber/Leather Color */
+    box-sizing: border-box;
+    /* 3D Tube Effect */
+    box-shadow: 
+        inset 5px 5px 10px rgba(255,255,255,0.1), /* Top-left reflection */
+        inset -5px -5px 10px rgba(0,0,0,0.8);    /* Bottom-right shadow */
+}
+
+/* 2. THE SPOKES (T-Shape Metal) */
+.wheel-spoke {
+    position: absolute;
+    background: linear-gradient(to bottom, #555, #333); /* Gunmetal Grey */
+    z-index: 1;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.left-spoke {
+    top: 50%; left: 0;
+    width: 50%; height: 12px;
+    transform: translateY(-50%);
+}
+
+.right-spoke {
+    top: 50%; right: 0;
+    width: 50%; height: 12px;
+    transform: translateY(-50%);
+}
+
+.bottom-spoke {
+    bottom: 0; left: 50%;
+    width: 12px; height: 50%;
+    transform: translateX(-50%);
+}
+
+/* 3. THE CENTER CAP (Horn Button) */
+.wheel-cap {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #444, #111);
+    border: 2px solid #666;
+    z-index: 2;
+    /* Simulates a bolt/logo in the center */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Fake Logo dot */
+.wheel-cap::after {
+    content: '';
+    width: 8px; height: 8px;
+    background: #ffcc00; /* Gold Logo */
+    border-radius: 50%;
+    box-shadow: 0 0 5px #ffcc00;
+}
+
+/* 4. THE RED MARKER (Top Center) */
+.wheel-marker {
+    position: absolute;
+    top: -5px; left: 50%;
+    transform: translateX(-50%);
+    width: 10px; height: 25px;
+    background: #ff0000;
+    z-index: 3;
+    border-radius: 2px;
+    box-shadow: 0 0 5px rgba(255,0,0,0.5);
+}
+
+/* --- PEDALS (Right Side) --- */
+.pedal-zone {
+    position: absolute;
+    bottom: 40px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 15px;
+    pointer-events: auto;
+}
+
+.pedal-row {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.pedal {
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-weight: bold;
+    font-family: sans-serif;
+    border-radius: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+    user-select: none;
+    text-shadow: 0 1px 2px black;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.5); /* 3D Button Depth */
+    transition: all 0.1s;
+}
+
+.pedal:active {
+    transform: translateY(4px); /* Press down effect */
+    box-shadow: 0 0 0 rgba(0,0,0,0.5);
+}
+
+/* Gas: Tall Vertical Pedal */
+.gas {
+    width: 60px; height: 110px;
+    background: linear-gradient(to bottom, #2ecc71, #27ae60);
+    border-radius: 10px 10px 4px 4px;
+}
+
+/* Brake: Wide Horizontal Pedal */
+.brake {
+    width: 80px; height: 50px;
+    background: linear-gradient(to bottom, #e74c3c, #c0392b);
+}
+
+/* Reverse: Small Square */
+.rev {
+    width: 50px; height: 50px;
+    background: linear-gradient(to bottom, #95a5a6, #7f8c8d);
+    font-size: 0.7rem;
+}
+
+/* --- MOBILE HUD FIX --- */
+@media (max-width: 900px) {
+    
+    /* Force Speedometer to Top-Right & Bring to Front */
+    #speedometer, .speedometer, .speed-box, #speed-hud {
+        /* Position: Top Right (Safe Zone) */
+        top: 20px !important;
+        right: 20px !important;
+        
+        /* Reset any Bottom/Left positioning */
+        bottom: auto !important;
+        left: auto !important;
+        transform: none !important;
+        
+        /* Layer: Higher than mobile controls (10000) */
+        z-index: 20000 !important; 
+        
+        /* Optional: Make it smaller on mobile if needed */
+        transform: scale(0.8) !important;
+        transform-origin: top right !important;
+    }
+
+    /* Move the "Reset Zone" prompt up too, so it's not hidden by the wheel */
+    #reset-zone-ui {
+        bottom: 50% !important;
+        z-index: 20000 !important;
+    }
+}
+
+
+iframe {
+    pointer-events: auto !important;
+}
+
+body > div:first-child { 
+    z-index: 0 !important;
+}
+canvas {
+    z-index: 1 !important;
+}
+
+.css3d-container {
+    z-index: 0 !important;
+}
+
+#ui-layer, #screen-overlay, #mobile-controls, #speed-hud, #reset-zone-ui {
+    z-index: 10000 !important; 
 }
