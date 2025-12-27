@@ -11,7 +11,8 @@ export class AudioSystem {
         this.masterGain.gain.value = 0; 
         this.masterGain.connect(this.ctx.destination);
 
-        // --- IDLE ENGINE (Procedural Rumble) ---
+        // --- 1. ENGINE (Procedural Rumble) ---
+        // Keeps your existing Sawtooth logic
         this.osc = this.ctx.createOscillator();
         this.osc.type = 'sawtooth';
         this.osc.frequency.value = 40; 
@@ -23,72 +24,103 @@ export class AudioSystem {
         this.osc.connect(this.filter);
         this.filter.connect(this.masterGain);
         
-        // --- START SOUND (MP3) ---
-        // Ensure you have 'car-engine-roaring.mp3' in your folder!
+        // --- 2. START SOUND (MP3) ---
         this.startSound = new Audio('./car-engine-roaring.mp3');
-        this.startSound.volume = 0.5; // Adjust volume if needed
+        this.startSound.volume = 0.5; 
         
+        // --- 3. DRIFT SCREECH (FM Synthesis) ---
+        // This creates a complex, "tearing" sound instead of a simple beep
+        
+        // A. The Carrier (The main "Squeal" pitch)
+        this.driftCarrier = this.ctx.createOscillator();
+        this.driftCarrier.type = 'triangle'; // Sine is smooth, good base for squeals
+        this.driftCarrier.frequency.value = 800; // High pitch
+
+        // B. The Modulator (The "Roughness")
+        // This shakes the carrier frequency fast to simulate friction
+        this.driftMod = this.ctx.createOscillator();
+        this.driftMod.type = 'sawtooth'; // Rough shape
+        this.driftMod.frequency.value = 60; // Rumble speed
+
+        // C. Modulation Depth (How intense the friction is)
+        this.modGain = this.ctx.createGain();
+        this.modGain.gain.value = 420; // High value = harsher sound
+
+        // Connect: Modulator -> Gain -> Carrier Frequency
+        this.driftMod.connect(this.modGain);
+        this.modGain.connect(this.driftCarrier.frequency);
+
+        // D. Output Volume
+        this.driftGain = this.ctx.createGain();
+        this.driftGain.gain.value = 0;
+
+        this.driftCarrier.connect(this.driftGain);
+        this.driftGain.connect(this.masterGain);
+
         this.isStarted = false;
     }
 
     init() {
         if (this.ctx.state === 'suspended') this.ctx.resume();
         
-        // Only start the procedural idle loop if it hasn't started yet
         if (!this.isStarted) { 
             this.osc.start(); 
+            
+            // Start FM Synth
+            this.driftCarrier.start();
+            this.driftMod.start();
+            
             this.isStarted = true; 
         }
     }
 
-  playStartSound() {
+    playStartSound() {
         this.init();
-        
-        // --- FIX: Record the start time so the update loop knows when to take over ---
         this.startTime = this.ctx.currentTime; 
 
-        // Play the MP3
         this.startSound.currentTime = 0;
         this.startSound.play().catch(e => console.warn("Audio play failed:", e));
 
         const t = this.ctx.currentTime;
-        
-        // Start silent (idle engine)
         this.masterGain.gain.setValueAtTime(0, t);
-        
-        // Wait 1.5s, then fade in the idle rumble over 1 second
         this.masterGain.gain.linearRampToValueAtTime(0.02, t + 2.5); 
     }
 
-   // Update signature to match main.js: update(speed, steering, isEngineActive)
-    update(speed, steering, isEngineActive = true) {
+    update(speed, steering, isEngineActive = true, isDrifting = false) {
         if (!this.isStarted) return;
         
         const s = Math.abs(speed);
         const t = this.ctx.currentTime;
 
-        // 1. PITCH (Restored your exact original logic)
-        // Responsive pitch change (0.1s time constant)
+        // --- 1. ENGINE UPDATE ---
         const targetFreq = 40 + (s * 10);
         this.osc.frequency.setTargetAtTime(targetFreq, t, 0.1);
         this.filter.frequency.setTargetAtTime(120 + (s * 50), t, 0.1);
 
-        // 2. VOLUME LOGIC
-        // Base volume math from your original code
         let targetVol = 0.02 + Math.min(s * 0.03, 0.3); 
-        
-        // --- AUTO-STOP OVERRIDE ---
-        if (!isEngineActive) {
-            targetVol = 0; 
-        }
+        if (!isEngineActive) targetVol = 0; 
 
-        // 3. APPLY VOLUME (Restored to 0.1 for "Snappy" response)
-        // We check startTime to ensure we don't kill the startup roar
         if (this.startTime && t > this.startTime + 2.5) {
-             // Reverted from 0.2 back to 0.1 so it reacts instantly to speed
              this.masterGain.gain.setTargetAtTime(targetVol, t, 0.1);
         }
+
+        // --- 3. DRIFT UPDATE (FM Tuning) ---
+        
+        // Volume: Only audible if drifting fast
+        const driftVol = (isDrifting && s > 5) ? Math.min(0.2, s * 0.02) : 0;
+        this.driftGain.gain.setTargetAtTime(driftVol, t, 0.1);
+        
+        // Pitch: Squeal gets higher and more "desperate" with speed
+        // 800Hz base + speed adjustment
+        this.driftCarrier.frequency.setTargetAtTime(800 + (s * 40), t, 0.1);
+        
+        // Roughness: As you go faster, the friction vibration speeds up
+        this.driftMod.frequency.setTargetAtTime(60 + (s * 5), t, 0.1);
+        
+        // Intensity: Higher speed = harsher tone
+        this.modGain.gain.setTargetAtTime(300 + (s * 50), t, 0.1);
     }
+
     playImpact(velocity) {
         if (!this.isStarted || velocity < 2.0) return; 
         const t = this.ctx.currentTime;
@@ -105,6 +137,7 @@ export class AudioSystem {
         const noiseFilter = this.ctx.createBiquadFilter();
         noiseFilter.type = 'lowpass';
         noiseFilter.frequency.value = 800;
+        
         noise.connect(noiseFilter);
         noiseFilter.connect(this.masterGain); 
         noise.start(t);
